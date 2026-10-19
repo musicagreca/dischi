@@ -83,7 +83,8 @@ const count=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x)||"—";m[k]=(m[k]|
 let dcat="",dshown=200,dgrid=store.get("disco-grid")==="1";
 function renderDischi(){
   const cats=count(DISCS,d=>d.cat);
-  const list=DISCS.filter(d=>!dcat||d.cat===dcat);
+  const pre=dcat?(DISCS.filter(d=>d.cat===dcat).map(d=>d.code.match(/^[A-Z]+/)?.[0]).reduce((m,p)=>(m[p]=(m[p]||0)+1,m),{})):{};const main=Object.entries(pre).sort((a,b)=>b[1]-a[1])[0]?.[0];
+  const list=DISCS.filter(d=>!dcat||d.cat===dcat).slice().sort((a,b)=>(dcat?((a.code.match(/^[A-Z]+/)?.[0]===main?0:1)-(b.code.match(/^[A-Z]+/)?.[0]===main?0:1)):0)||a.code.localeCompare(b.code,"it",{numeric:true}));
   $("#out-dischi").innerHTML=`<div class="chips"><button class="chip ${dcat?"":"on"}" data-dcat="">Tutti <span>${DISCS.length}</span></button>${cats.map(([c,n])=>`<button class="chip ${c===dcat?"on":""}" data-dcat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div>
   ${pbar([["dpos","Stampa per posizione"],["dtit","Stampa per titolo"]])}<div class="seg"><button data-grid="0" class="${dgrid?"":"on"}">Elenco</button><button data-grid="1" class="${dgrid?"on":""}">Copertine</button></div>
   ${dgrid?`<div class="grid">${list.slice(0,dshown).map(d=>`<button class="tile" data-disc="${esc(d.code)}">${covImg(d,"gr")}<span class="code">${esc(d.code)}</span><small>${esc(d.title)}</small></button>`).join("")}</div>`:`<div class="list">${list.slice(0,dshown).map(discRow).join("")}</div>`}${more("dischi",Math.min(dshown,list.length),list.length)}`;
