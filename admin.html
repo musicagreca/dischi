@@ -1,0 +1,602 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin — Canzoniere</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600;700&family=Source+Sans+3:wght@400;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --wine:#5E1F2A; --wine-dark:#3E1319; --paper:#F3ECDD; --paper-deep:#EAE0CB;
+    --ink:#2B2420; --gold:#B4903D; --line:#D8CBA9; --ok:#3F6B3F; --warn:#A63A2C;
+  }
+  *{box-sizing:border-box;}
+  body{ margin:0; background:var(--paper); color:var(--ink); font-family:'Source Sans 3', sans-serif; }
+  header{ background:var(--wine-dark); color:#F3ECDD; padding:22px 24px; }
+  header h1{ font-family:'Fraunces', serif; font-size:1.5rem; margin:0; }
+  header p{ font-family:'JetBrains Mono', monospace; font-size:0.75rem; opacity:0.75; margin:4px 0 0; }
+
+  .layout{ display:grid; grid-template-columns:340px 1fr; min-height:calc(100vh - 78px); }
+  @media (max-width:900px){ .layout{ grid-template-columns:1fr; } }
+
+  aside{ background:var(--paper-deep); border-right:1px solid var(--line); padding:20px; overflow-y:auto; }
+  aside h3{ font-family:'JetBrains Mono', monospace; font-size:0.78rem; text-transform:uppercase; letter-spacing:0.08em; color:var(--wine); margin:0 0 12px; }
+  #new-btn{ width:100%; padding:10px; margin-bottom:16px; background:var(--wine); color:#fff; border:none; border-radius:3px; font-weight:600; cursor:pointer; }
+  #new-btn:hover{ background:var(--wine-dark); }
+  #admin-search{ width:100%; padding:8px 10px; margin-bottom:14px; border:1px solid var(--line); border-radius:3px; }
+  .browse-toggle{ display:flex; gap:4px; margin-bottom:12px; }
+  .browse-btn{
+    flex:1; background:#fff; border:1px solid var(--line); border-radius:3px;
+    padding:6px 4px; cursor:pointer; font-size:0.78rem; color:var(--ink,#2B2420);
+  }
+  .browse-btn.active{ background:var(--wine); border-color:var(--wine); color:#fff; }
+  .name-row{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:8px 10px; cursor:pointer; border-bottom:1px solid var(--line);
+  }
+  .name-row:hover{ background:#fff; }
+  .name-row .count{ font-size:0.75rem; color:#8a7f6f; }
+  .alpha-bar{ display:flex; flex-wrap:wrap; gap:3px; margin-bottom:14px; }
+  .alpha-btn{
+    font-family:monospace; font-size:0.75rem;
+    border:1px solid var(--line); background:#fff; color:var(--wine, #7a2e2e);
+    padding:3px 6px; border-radius:2px; cursor:pointer; min-width:22px; text-align:center;
+  }
+  .alpha-btn:hover{ border-color:#b4903d; }
+  .alpha-btn.active{ background:var(--wine, #7a2e2e); border-color:var(--wine, #7a2e2e); color:#fff; }
+  .alpha-btn.disabled{ opacity:0.3; cursor:default; pointer-events:none; }
+  .alpha-btn.all{ font-family:inherit; font-weight:600; padding:3px 8px; }
+  .admin-row{ padding:10px 8px; border-bottom:1px solid var(--line); cursor:pointer; font-size:0.9rem; display:flex; justify-content:space-between; }
+  .admin-row:hover{ background:rgba(180,144,61,0.15); }
+  .admin-row.active{ background:var(--gold); color:#fff; }
+  .del-x{ opacity:0.5; padding:0 4px; }
+  .del-x:hover{ opacity:1; color:var(--warn); }
+
+  main{ padding:28px 32px 60px; max-width:760px; }
+  .field{ margin-bottom:16px; }
+  .field label{ display:block; font-family:'JetBrains Mono', monospace; font-size:0.76rem; text-transform:uppercase; letter-spacing:0.06em; color:var(--wine); margin-bottom:5px; }
+  .field input, .field select{ width:100%; padding:9px 10px; border:1px solid var(--line); border-radius:3px; font-size:0.95rem; background:#fffdf8; }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+  .row4{ display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:16px; }
+  #testo{
+    width:100%; min-height:360px; padding:14px; font-family:'JetBrains Mono', monospace; font-size:0.92rem; line-height:1.85;
+    border:1px solid var(--line); border-radius:3px; background:#fffdf8; resize:vertical; white-space:pre;
+  }
+  .hint{ font-size:0.8rem; color:var(--wine); opacity:0.8; margin-top:4px; }
+  .actions{ display:flex; gap:12px; margin-top:20px; flex-wrap:wrap; }
+  button.primary{ background:var(--ok); color:#fff; border:none; padding:11px 22px; border-radius:3px; font-weight:600; cursor:pointer; }
+  button.primary:hover{ filter:brightness(1.08); }
+  button.secondary{ background:none; border:1px solid var(--wine); color:var(--wine); padding:11px 20px; border-radius:3px; cursor:pointer; }
+  button.secondary:hover{ background:var(--wine); color:#fff; }
+  button.danger{ background:none; border:1px solid var(--warn); color:var(--warn); padding:11px 20px; border-radius:3px; cursor:pointer; }
+  button.danger:hover{ background:var(--warn); color:#fff; }
+
+  .io-box{ margin-top:36px; padding-top:20px; border-top:2px solid var(--wine); }
+  .io-box h3{ font-family:'JetBrains Mono', monospace; font-size:0.78rem; text-transform:uppercase; color:var(--wine); }
+  textarea#json-export{ width:100%; height:120px; font-family:'JetBrains Mono', monospace; font-size:0.78rem; padding:10px; border:1px solid var(--line); border-radius:3px; }
+  #status-msg{ font-family:'JetBrains Mono', monospace; font-size:0.82rem; padding:8px 0; }
+  #status-msg.ok{ color:var(--ok); }
+  #status-msg.err{ color:var(--warn); }
+
+  datalist{}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Canzoniere — Admin</h1>
+  <p>pannello locale · non caricare su GitHub · salva/esporta dati.json regolarmente</p>
+</header>
+
+<div class="layout">
+  <aside>
+    <button id="new-btn">+ nuova canzone</button>
+    <input type="text" id="admin-search" placeholder="titolo, autore o cantante…">
+    <div class="browse-toggle">
+      <button class="browse-btn active" id="btn-mode-canzoni" onclick="setAdminMode('canzoni')">Canzoni</button>
+      <button class="browse-btn" id="btn-mode-autori" onclick="setAdminMode('autori')">Autori</button>
+      <button class="browse-btn" id="btn-mode-cantanti" onclick="setAdminMode('cantanti')">Cantanti</button>
+      <button class="browse-btn" id="btn-mode-schede" onclick="setAdminMode('schede')">Schede</button>
+    </div>
+    <div class="alpha-bar" id="admin-alpha-bar"></div>
+    <h3 id="list-heading">Canzoni (<span id="count">0</span>)</h3>
+    <div id="admin-list"></div>
+  </aside>
+
+  <main>
+    <div id="status-msg"></div>
+
+    <div id="person-form" style="display:none;">
+      <h3 style="font-family:'Fraunces',serif;color:var(--wine);margin:0 0 14px;">Scheda persona <button type="button" id="p-paste-btn" style="font-size:.8rem;margin-left:10px;">📋 Incolla dai dischi</button></h3>
+      <div id="p-dischi-info" style="display:none;font-size:.85rem;background:#fbf6e9;border:1px solid #e6d7b0;border-radius:4px;padding:8px 10px;margin:0 0 12px;max-height:220px;overflow:auto"></div>
+      <div class="field"><label>Nome (scritto come nelle canzoni)</label><input type="text" id="p-nome" list="dl-nomi"><datalist id="dl-nomi"></datalist></div>
+      <div class="field"><label>Altri nomi (separati da virgola)</label><input type="text" id="p-alias" placeholder="Es. Faber, F. De André"></div>
+      <div class="field"><label>Ruoli</label><input type="text" id="p-ruoli" placeholder="Es. cantautore, paroliere"></div>
+      <div class="row2">
+        <div class="field"><label>Nato</label><input type="text" id="p-nato" placeholder="Es. 18 febbraio 1940, Genova"></div>
+        <div class="field"><label>Morto</label><input type="text" id="p-morto" placeholder="Es. 11 gennaio 1999, Milano"></div>
+      </div>
+      <div class="field"><label>Foto (indirizzo dell'immagine)</label><input type="text" id="p-foto" placeholder="https://..."></div>
+      <div class="field"><label>Link per approfondire</label><input type="text" id="p-link" placeholder="https://..."></div>
+      <div class="field"><label>Biografia</label><textarea id="p-bio" style="width:100%;min-height:260px;padding:12px;border:1px solid var(--line);border-radius:3px;background:#fffdf8;font-family:inherit;font-size:0.95rem;line-height:1.6;" placeholder="Lascia una riga vuota tra un paragrafo e l'altro."></textarea></div>
+      <div class="actions">
+        <button class="primary" id="p-save-btn">Salva scheda</button>
+        <button class="danger" id="p-delete-btn" style="display:none;">Elimina scheda</button>
+      </div>
+    </div>
+
+    <div id="song-form">
+
+    <div class="field">
+      <label>Titolo</label>
+      <input type="text" id="f-titolo" placeholder="Es. La cura">
+    </div>
+
+    <div class="field" style="display:flex; align-items:center; gap:8px;">
+      <input type="checkbox" id="f-triestina" style="width:auto; margin:0;" onchange="toggleSpintaField()">
+      <label for="f-triestina" style="margin:0; cursor:pointer;">Canzone triestina (va nella scheda separata)</label>
+    </div>
+
+    <div class="field" id="spinta-field" style="display:none; align-items:center; gap:8px;">
+      <input type="checkbox" id="f-spinta" style="width:auto; margin:0;">
+      <label for="f-spinta" style="margin:0; cursor:pointer;">Un po' spinta (nascosta di default, separata dalle altre)</label>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Autore testo</label>
+        <input type="text" id="f-autoreTesto" list="dl-testo">
+        <datalist id="dl-testo"></datalist>
+      </div>
+      <div class="field">
+        <label>Autore musica</label>
+        <input type="text" id="f-autoreMusica" list="dl-musica">
+        <datalist id="dl-musica"></datalist>
+      </div>
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label>Cantante/i</label>
+        <input type="text" id="f-cantante" list="dl-cantante">
+        <datalist id="dl-cantante"></datalist>
+      </div>
+      <div class="field">
+        <label>Anno</label>
+        <input type="text" id="f-anno" placeholder="Es. 1996">
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Testo + accordi</label>
+      <textarea id="testo" placeholder="DOm         FA          SIb&#10;Le parole non contano più..."></textarea>
+      <div class="hint">
+        Notazione accordi: DO RE MI FA SOL LA SI (maiuscolo), qualità minuscola (es. DOm, SOL7, FA#dim, LA/DO#).
+        Metti la riga di accordi sopra la riga di testo corrispondente, allineando gli accordi con gli spazi
+        esattamente sopra la sillaba giusta — il sito riconosce da solo le righe che sono "di soli accordi".
+      </div>
+    </div>
+
+    <div class="field">
+      <label>Note</label>
+      <textarea id="f-note" placeholder="Curiosità, aneddoti, indicazioni per l'esecuzione..." style="min-height:80px; font-family: inherit;"></textarea>
+    </div>
+
+    <div class="field">
+      <label>Link ascolto (YouTube, Spotify...)</label>
+      <input type="text" id="f-link" placeholder="https://...">
+    </div>
+
+    <div class="actions">
+      <button class="primary" id="save-btn">Salva canzone</button>
+      <button class="danger" id="delete-btn" style="display:none;">Elimina</button>
+    </div>
+
+    </div>
+
+    <div class="io-box">
+      <h3>Esporta / importa dati.json</h3>
+      <div class="actions">
+        <button class="secondary" id="export-btn">Scarica dati.json</button>
+        <button class="secondary" id="import-btn">Importa file…</button>
+        <input type="file" id="import-file" accept=".json" style="display:none;">
+      </div>
+      <p class="hint">Dopo ogni sessione di lavoro scarica dati.json e sostituiscilo nella cartella del sito (e su GitHub), così index.html mostra le modifiche.</p>
+    </div>
+  </main>
+</div>
+
+<script src="chords.js"></script>
+<script>
+let SONGS = [];
+let PERSONE = [];
+let currentPersona = null;
+let currentId = null;
+const STORAGE_KEY = 'canzoniere_dati';
+
+function load(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  if(raw){
+    try{ const j = JSON.parse(raw); SONGS = j.canzoni || []; PERSONE = j.persone || []; }catch(e){ SONGS = []; PERSONE = []; }
+  }
+  renderList();
+}
+
+function persist(){
+  try{
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({canzoni: SONGS, persone: PERSONE}));
+    showStatus('Salvato in locale ✓', 'ok');
+  }catch(e){
+    showStatus('Attenzione: salvataggio locale fallito (spazio pieno?). Esporta subito dati.json per non perdere le modifiche!', 'err');
+  }
+}
+
+function showStatus(msg, cls){
+  const el = document.getElementById('status-msg');
+  el.textContent = msg;
+  el.className = cls;
+  setTimeout(() => { if(el.textContent === msg) el.textContent=''; }, 4000);
+}
+
+let currentLetter = null;
+
+function normalizeLetter(str){
+  const raw = (str || '').trim();
+  if(!raw) return '';
+  const c = raw.normalize('NFD').replace(/[\u0300-\u036f]/g, '').charAt(0).toUpperCase();
+  return /[A-Z]/.test(c) ? c : '#';
+}
+
+function renderAlphaBar(allSongs){
+  const present = new Set(allSongs.map(s => normalizeLetter(s.titolo)).filter(Boolean));
+  const bar = document.getElementById('admin-alpha-bar');
+  bar.innerHTML = '';
+
+  const allBtn = document.createElement('button');
+  allBtn.className = 'alpha-btn all' + (currentLetter === null ? ' active' : '');
+  allBtn.textContent = 'Tutti';
+  allBtn.addEventListener('click', () => { currentLetter = null; render(document.getElementById('admin-search').value); });
+  bar.appendChild(allBtn);
+
+  ['#', ...'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')].forEach(letter => {
+    const has = present.has(letter);
+    const btn = document.createElement('button');
+    btn.className = 'alpha-btn' + (currentLetter === letter ? ' active' : '') + (has ? '' : ' disabled');
+    btn.textContent = letter;
+    if(has) btn.addEventListener('click', () => { currentLetter = letter; render(document.getElementById('admin-search').value); });
+    bar.appendChild(btn);
+  });
+}
+
+let adminMode = 'canzoni';
+
+function splitNames(str){
+  return (str || '').split(',').map(s => s.trim()).filter(Boolean);
+}
+
+function namesForRole(song, role){
+  if(role === 'cantante') return splitNames(song.cantante);
+  return [...splitNames(song.autoreTesto), ...splitNames(song.autoreMusica)];
+}
+
+function setAdminMode(mode){
+  adminMode = mode;
+  currentLetter = null;
+  document.getElementById('person-form').style.display = mode === 'schede' ? 'block' : 'none';
+  document.getElementById('song-form').style.display = mode === 'schede' ? 'none' : 'block';
+  ['canzoni','autori','cantanti','schede'].forEach(m =>
+    document.getElementById('btn-mode-' + m).classList.toggle('active', m === mode)
+  );
+  document.getElementById('admin-search').value = '';
+  render();
+}
+
+function render(filter){
+  if(adminMode === 'canzoni'){
+    document.getElementById('list-heading').innerHTML = 'Canzoni (<span id="count">0</span>)';
+    renderList(filter || '');
+  } else if(adminMode === 'schede'){
+    renderSchede(filter);
+  } else {
+    renderNameBrowse(adminMode === 'autori' ? 'autore' : 'cantante', filter);
+  }
+}
+
+function renderNameBrowse(role, filter){
+  const listEl = document.getElementById('admin-list');
+  const f = (filter||'').toLowerCase();
+  const counts = {};
+  SONGS.forEach(song => {
+    namesForRole(song, role).forEach(name => { counts[name] = (counts[name] || 0) + 1; });
+  });
+  let allNames = Object.keys(counts).sort((a,b) => a.localeCompare(b, 'it'));
+  if(f) allNames = allNames.filter(n => n.toLowerCase().includes(f));
+  renderAlphaBar(allNames.map(n => ({titolo: n})));
+  const names = currentLetter ? allNames.filter(n => normalizeLetter(n) === currentLetter) : allNames;
+
+  document.getElementById('list-heading').textContent = (role === 'autore' ? 'Autori' : 'Cantanti') + ' (' + names.length + ')';
+  listEl.innerHTML = '';
+  names.forEach(name => {
+    const row = document.createElement('div');
+    row.className = 'name-row';
+    row.innerHTML = `<span>${escapeHtml(name)}</span><span class="count">${counts[name]}</span>`;
+    row.addEventListener('click', () => {
+      adminMode = 'canzoni';
+      currentLetter = null;
+      document.getElementById('btn-mode-canzoni').classList.add('active');
+      document.getElementById('btn-mode-autori').classList.remove('active');
+      document.getElementById('btn-mode-cantanti').classList.remove('active');
+      document.getElementById('btn-mode-schede').classList.remove('active');
+      document.getElementById('person-form').style.display = 'none';
+      document.getElementById('song-form').style.display = 'block';
+      document.getElementById('admin-search').value = name;
+      document.getElementById('list-heading').innerHTML = escapeHtml(name) + ' (<span id="count">0</span>)';
+      renderList(name);
+    });
+    listEl.appendChild(row);
+  });
+}
+
+function renderList(filter){
+  const listEl = document.getElementById('admin-list');
+  const f = (filter||'').toLowerCase();
+  const bySearch = SONGS
+    .map((s,i) => ({...s, _idx:i}))
+    .filter(s => !f ||
+      (s.titolo||'').toLowerCase().includes(f) ||
+      (s.autoreTesto||'').toLowerCase().includes(f) ||
+      (s.autoreMusica||'').toLowerCase().includes(f) ||
+      (s.cantante||'').toLowerCase().includes(f)
+    );
+  renderAlphaBar(bySearch);
+  const filtered = (currentLetter ? bySearch.filter(s => normalizeLetter(s.titolo) === currentLetter) : bySearch)
+    .sort((a,b) => (a.titolo||'').localeCompare(b.titolo||'', 'it'));
+
+  document.getElementById('count').textContent = filtered.length;
+  listEl.innerHTML = '';
+  filtered.forEach(song => {
+    const row = document.createElement('div');
+    row.className = 'admin-row' + (song._idx === currentId ? ' active' : '');
+    row.innerHTML = `<span>${song.spinta ? '🔞 ' : song.triestina ? '📍 ' : ''}${escapeHtml(song.titolo||'(senza titolo)')}</span><span class="del-x" data-idx="${song._idx}">✕</span>`;
+    row.addEventListener('click', (e) => {
+      if(e.target.classList.contains('del-x')) return;
+      loadIntoForm(song._idx);
+    });
+    row.querySelector('.del-x').addEventListener('click', (e) => {
+      e.stopPropagation();
+      if(confirm(`Eliminare "${song.titolo}"?`)){
+        SONGS.splice(song._idx, 1);
+        currentId = null;
+        persist(); renderList(); clearForm();
+        refreshDatalists();
+      }
+    });
+    listEl.appendChild(row);
+  });
+}
+
+function escapeHtml(str){
+  const d = document.createElement('div'); d.textContent = str||''; return d.innerHTML;
+}
+
+function loadIntoForm(idx){
+  currentId = idx;
+  const s = SONGS[idx];
+  document.getElementById('f-titolo').value = s.titolo || '';
+  document.getElementById('f-autoreTesto').value = s.autoreTesto || '';
+  document.getElementById('f-autoreMusica').value = s.autoreMusica || '';
+  document.getElementById('f-cantante').value = s.cantante || '';
+  document.getElementById('f-anno').value = s.anno || '';
+  document.getElementById('testo').value = s.testo || '';
+  document.getElementById('f-note').value = s.note || '';
+  document.getElementById('f-link').value = s.link || '';
+  document.getElementById('f-triestina').checked = !!s.triestina;
+  document.getElementById('f-spinta').checked = !!s.spinta;
+  toggleSpintaField();
+  document.getElementById('delete-btn').style.display = 'inline-block';
+  renderList(document.getElementById('admin-search').value);
+}
+
+function toggleSpintaField(){
+  const on = document.getElementById('f-triestina').checked;
+  document.getElementById('spinta-field').style.display = on ? 'flex' : 'none';
+  if(!on) document.getElementById('f-spinta').checked = false;
+}
+
+function clearForm(){
+  currentId = null;
+  ['f-titolo','f-autoreTesto','f-autoreMusica','f-cantante','f-anno'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('testo').value = '';
+  document.getElementById('f-note').value = '';
+  document.getElementById('f-link').value = '';
+  document.getElementById('f-triestina').checked = false;
+  document.getElementById('f-spinta').checked = false;
+  toggleSpintaField();
+  document.getElementById('delete-btn').style.display = 'none';
+  renderList(document.getElementById('admin-search').value);
+}
+
+function refreshDatalists(){
+  const uniq = arr => [...new Set(arr.filter(Boolean))].sort((a,b)=>a.localeCompare(b,'it'));
+  const fill = (id, values) => {
+    const dl = document.getElementById(id);
+    dl.innerHTML = '';
+    values.forEach(v => { const o = document.createElement('option'); o.value = v; dl.appendChild(o); });
+  };
+  fill('dl-testo', uniq(SONGS.map(s => s.autoreTesto)));
+  fill('dl-musica', uniq(SONGS.map(s => s.autoreMusica)));
+  fill('dl-cantante', uniq(SONGS.map(s => s.cantante)));
+}
+
+document.getElementById('new-btn').addEventListener('click', () => { if(adminMode === 'schede') loadPersona(null, ''); else clearForm(); });
+
+/* ── SCHEDE PERSONE ── */
+function normName(s){ return (s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim(); }
+function allNames(){
+  const c = {};
+  SONGS.forEach(s => [...splitNames(s.cantante), ...splitNames(s.autoreTesto), ...splitNames(s.autoreMusica)].forEach(n => { c[n] = (c[n]||0) + 1; }));
+  return c;
+}
+function personaFor(name){ const k = normName(name); return PERSONE.findIndex(p => normName(p.nome) === k || (p.alias||'').split(',').some(a => normName(a) === k)); }
+function renderSchede(filter){
+  const f = (filter||'').toLowerCase();
+  const counts = allNames();
+  const names = new Set(Object.keys(counts));
+  PERSONE.forEach(p => names.add(p.nome));
+  let list = [...names].filter(n => !f || n.toLowerCase().includes(f));
+  list = list.filter((n, i, arr) => { const pi = personaFor(n); return pi < 0 || arr.findIndex(m => personaFor(m) === pi) === i; });
+  renderAlphaBar(list.map(n => ({titolo: n})));
+  if(currentLetter) list = list.filter(n => normalizeLetter(n) === currentLetter);
+  list.sort((a,b) => (personaFor(b) >= 0) - (personaFor(a) >= 0) || a.localeCompare(b, 'it'));
+  const done = list.filter(n => personaFor(n) >= 0).length;
+  document.getElementById('list-heading').textContent = 'Schede: ' + done + ' scritte · ' + (list.length - done) + ' da scrivere';
+  const listEl = document.getElementById('admin-list');
+  listEl.innerHTML = '';
+  list.forEach(name => {
+    const pi = personaFor(name);
+    const row = document.createElement('div');
+    row.className = 'name-row' + (pi >= 0 && pi === currentPersona ? ' active' : '');
+    row.innerHTML = `<span>${pi >= 0 ? '📄 ' : ''}${escapeHtml(pi >= 0 ? PERSONE[pi].nome : name)}</span><span class="count">${counts[name] || ''}</span>`;
+    row.addEventListener('click', () => loadPersona(pi >= 0 ? pi : null, name));
+    listEl.appendChild(row);
+  });
+  const dl = document.getElementById('dl-nomi'); dl.innerHTML = '';
+  Object.keys(counts).sort((a,b) => a.localeCompare(b,'it')).forEach(n => { const o = document.createElement('option'); o.value = n; dl.appendChild(o); });
+}
+function loadPersona(idx, name){
+  currentPersona = idx;
+  const p = idx !== null ? PERSONE[idx] : {nome: name || ''};
+  ['nome','alias','ruoli','nato','morto','foto','link','bio'].forEach(k => document.getElementById('p-' + k).value = p[k] || '');
+  document.getElementById('p-delete-btn').style.display = idx !== null ? 'inline-block' : 'none';
+  renderSchede(document.getElementById('admin-search').value);
+}
+document.getElementById('p-save-btn').addEventListener('click', () => {
+  const d = {};
+  ['nome','alias','ruoli','nato','morto','foto','link','bio'].forEach(k => d[k] = document.getElementById('p-' + k).value.trim());
+  if(!d.nome){ showStatus('Serve almeno il nome.', 'err'); return; }
+  const taken = new Set(PERSONE.map((p,i) => i === currentPersona ? null : p.id));
+  if(currentPersona !== null){ d.id = PERSONE[currentPersona].id; PERSONE[currentPersona] = d; }
+  else {
+    const dup = personaFor(d.nome);
+    if(dup >= 0){ showStatus('Esiste già una scheda per questo nome: la apro.', 'err'); loadPersona(dup); return; }
+    let base = slugify(d.nome), id = base, n = 2; while(taken.has(id)){ id = base + '-' + n; n++; }
+    d.id = id; PERSONE.push(d); currentPersona = PERSONE.length - 1;
+  }
+  persist();
+  document.getElementById('p-delete-btn').style.display = 'inline-block';
+  renderSchede(document.getElementById('admin-search').value);
+});
+document.getElementById('p-paste-btn').addEventListener('click', async () => {
+  let t='';try{t=await navigator.clipboard.readText()}catch(e){}
+  if(!t||t.indexOf('SCHEDA-DISCHI:')<0)t=prompt('Incolla qui i dati copiati da «I miei dischi» (Ctrl+V) e premi OK:')||'';
+  const i=t.indexOf('SCHEDA-DISCHI:');if(i<0){if(t)alert('Non trovo i dati: in «I miei dischi» premi prima «✍️ Scrivi la scheda».');return}
+  let d;try{d=JSON.parse(t.slice(i+14))}catch(e){alert('I dati copiati non sono completi: riprova.');return}
+  const pi=personaFor(d.name);
+  if(pi>=0){loadPersona(pi);showStatus('Questa persona ha già una scheda: l\u2019ho aperta.','ok');}
+  else{loadPersona(null,d.name);
+    const set=(k,v)=>{const e=document.getElementById('p-'+k);if(e&&!e.value&&v)e.value=v};
+    set('alias',d.nick);set('ruoli',d.ruoli);set('nato',d.born);set('morto',d.died);}
+  const el=document.getElementById('p-dischi-info');
+  el.innerHTML='<b>Dai tuoi dischi</b>'+(d.nick?' · soprannome «'+escapeHtml(d.nick)+'»':'')+' · '+d.tot+' brani'+(d.instr?' · '+escapeHtml(d.instr):'')+'<br>'+(d.discs||[]).map(x=>'• '+escapeHtml(x)).join('<br>');el.style.display='block';
+});
+document.getElementById('p-delete-btn').addEventListener('click', () => {
+  if(currentPersona === null) return;
+  if(confirm('Eliminare la scheda di ' + PERSONE[currentPersona].nome + '?')){
+    PERSONE.splice(currentPersona, 1); persist(); loadPersona(null, '');
+  }
+});
+
+function slugify(str){
+  return (str || '')
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'canzone';
+}
+
+function uniqueSlug(base, excludeIdx){
+  let slug = base, n = 2;
+  const taken = new Set(SONGS.map((s,i) => i === excludeIdx ? null : s.id).filter(Boolean));
+  while(taken.has(slug)){ slug = base + '-' + n; n++; }
+  return slug;
+}
+
+document.getElementById('save-btn').addEventListener('click', () => {
+  const data = {
+    titolo: document.getElementById('f-titolo').value.trim(),
+    autoreTesto: document.getElementById('f-autoreTesto').value.trim(),
+    autoreMusica: document.getElementById('f-autoreMusica').value.trim(),
+    cantante: document.getElementById('f-cantante').value.trim(),
+    anno: document.getElementById('f-anno').value.trim(),
+    testo: document.getElementById('testo').value,
+    note: document.getElementById('f-note').value.trim(),
+    link: document.getElementById('f-link').value.trim(),
+    triestina: document.getElementById('f-triestina').checked,
+    spinta: document.getElementById('f-triestina').checked && document.getElementById('f-spinta').checked,
+  };
+  if(!data.titolo){ showStatus('Serve almeno un titolo.', 'err'); return; }
+
+  if(currentId !== null){
+    data.id = SONGS[currentId].id || uniqueSlug(slugify(data.titolo), currentId);
+    SONGS[currentId] = data;
+  }else{
+    data.id = uniqueSlug(slugify(data.titolo), null);
+    SONGS.push(data);
+    currentId = SONGS.length - 1;
+  }
+  persist();
+  refreshDatalists();
+  renderList(document.getElementById('admin-search').value);
+  document.getElementById('delete-btn').style.display = 'inline-block';
+});
+
+document.getElementById('delete-btn').addEventListener('click', () => {
+  if(currentId === null) return;
+  if(confirm('Eliminare questa canzone?')){
+    SONGS.splice(currentId, 1);
+    persist();
+    refreshDatalists();
+    clearForm();
+  }
+});
+
+document.getElementById('admin-search').addEventListener('input', e => render(e.target.value));
+
+document.getElementById('export-btn').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({canzoni: SONGS, persone: PERSONE}, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'dati.json';
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('import-btn').addEventListener('click', () => document.getElementById('import-file').click());
+document.getElementById('import-file').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const json = JSON.parse(reader.result);
+      SONGS = json.canzoni || [];
+      PERSONE = json.persone || [];
+      currentId = null;
+      persist();
+      refreshDatalists();
+      render();
+      clearForm();
+      showStatus('Importato ✓', 'ok');
+    }catch(err){
+      showStatus('File non valido.', 'err');
+    }
+  };
+  reader.readAsText(file);
+});
+
+load();
+refreshDatalists();
+</script>
+</body>
+</html>
