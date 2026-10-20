@@ -125,11 +125,34 @@ function renderMus(){
    ${pbar([["mus","Stampa l'elenco (solo nomi)"]])}<p class="hint">${base.length.toLocaleString("it")} ${ROLES.find(r=>r[0]===mrole)[1].toLowerCase()}${msite==="no"&&msort==="n"?" · in cima chi compare di più e non ha ancora la scheda: i primi candidati da scrivere.":""}</p>${az}`;
   $("#out-musicisti-list").innerHTML=list.slice(0,mshown).map(musRow).join("")+more("musicisti",Math.min(mshown,list.length),list.length);
 }
+/* ---------- mappa ---------- */
+const MAP=[["C00",54,195,184,236],["C04 01",786,195,903,236],["C01",54,236,184,338],["C04",184,236,786,297],["C21",786,236,903,338,"+ DVD"],["C24",903,297,1399,359],["C05",184,297,300,419],["C08",300,297,423,359],["C11",423,297,540,419],["C14",540,297,670,359],["C18",670,297,786,419],["C02",54,338,184,440],["C09",300,359,423,419],["C15",540,359,670,419],["C22",786,338,903,440],["C25",903,359,1399,419],["C06",184,419,300,481],["C10",300,419,423,542],["C12",423,419,540,481],["C16",540,419,670,481],["C19",670,419,786,481],["C26",903,419,1399,481],["C03",54,440,184,542],["C23",786,440,903,542],["C07",184,481,300,542],["C13",423,481,540,542],["C17",540,481,670,542],["C20",670,481,786,542],["C27",903,481,1399,542],
+["V01",54,563,300,706],["V02",54,706,300,848],["V03",54,848,300,1033],["V04",300,604,485,746],["V05",300,746,485,890],["V06",300,890,485,1033],["V07",485,542,732,665],["V08",485,665,732,807],["CASSETTO",485,807,732,869],["CASSETTO 2",485,869,732,931],["CASSETTO 3",485,931,732,992],["V09",732,604,903,746],["V10",732,746,903,890],["V11",732,890,903,1033],
+["",54,542,300,563],["",300,542,485,604],["",732,542,903,604],["",485,992,732,1033]];
+const CATCOL={"Dimotikà":"#5b8c5a","Rebetiko":"#b5543c","Rebetiko non originale":"#d08a6e","Laïká":"#c9a227","Kritikà":"#3f7cac","Asia Minore":"#8e5ea2","Asia Minore non originale":"#b391c2","Éntekhno":"#2f9e9e","Italiana":"#6c8ebf","Classica":"#7a7a7a","Rock":"#444","Rock greco":"#666","Pop":"#c07aa0","Pop greco":"#d6a3be","Jazz, blues, gospel":"#7b5e3b","Canzoni dal mondo":"#a0855b","DVD":"#999","Varie (edizione greca)":"#b8a88a"};
+const shelfKey=sh=>{sh=String(sh||"").trim();if(/^cassetto/i.test(sh))return "CASSETTO";if(/^C04-1/i.test(sh))return "C04 01";const m=sh.match(/^([CV]\d\d)/i);return m?m[1].toUpperCase():sh||"—"};
+function mapSVG(){
+  const g={};ALLD.forEach(d=>{const k=shelfKey(d.shelf);(g[k]||(g[k]=[])).push(d)});
+  const box=([k,x1,y1,x2,y2,extra])=>{const w=x2-x1,h=y2-y1;if(!k)return `<rect x="${x1}" y="${y1}" width="${w}" height="${h}" class="mx"/>`;
+    const l=g[k]||[];const cats=count(l,d=>d.cat);const col=l.length?(CATCOL[cats[0][0]]||"#999"):"none";
+    const fs=Math.min(34,w/3.2,h/2.2);
+    return `<g class="mb${l.length?"":" empty"}" data-shelfmap="${esc(k)}"><rect x="${x1}" y="${y1}" width="${w}" height="${h}" style="fill:${col}"/><text x="${x1+w/2}" y="${y1+h/2-(l.length?fs*.15:0)}" font-size="${fs}">${esc(k)}</text>${l.length?`<text class="n" x="${x1+w/2}" y="${y1+h/2+fs*.95}" font-size="${fs*.72}">${l.length}${extra?" "+extra:""}</text>`:""}</g>`};
+  const used=new Set(Object.values(CATCOL));const legend=count(ALLD,d=>d.cat).filter(([c])=>CATCOL[c]).map(([c,n])=>`<span><i style="background:${CATCOL[c]}"></i>${esc(c)}</span>`).join("");
+  const other=Object.keys(g).filter(k=>!MAP.some(m=>m[0]===k));
+  return `<div class="mapwrap"><div class="mapscroll"><svg viewBox="40 185 1370 880" class="map" role="img" aria-label="Mappa degli scaffali">${MAP.map(box).join("")}<text x="60" y="1055" class="mlab">CD sopra · vinili (V) sotto · tocca uno scaffale</text></svg></div><div class="legend">${legend}</div>${other.length?`<p class="hint">Altri posti: ${other.map(k=>`<a href="#" data-shelfmap="${esc(k)}">${esc(k)}</a> (${g[k].length})`).join(" · ")}</p>`:""}</div>`;
+}
+function openShelf(k){
+  const l=ALLD.filter(d=>shelfKey(d.shelf)===k).slice().sort((a,b)=>String(a.shelf).localeCompare(String(b.shelf),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true}));
+  const sub={};l.forEach(d=>(sub[d.shelf]||(sub[d.shelf]=[])).push(d));
+  SHELFVIEW=true;$("#panel-body").innerHTML=`<p class="eyebrow">Scaffale</p><h2>${esc(k)}</h2><p class="by">${l.length} dischi · ${esc(count(l,d=>d.cat).map(([c,n])=>c+" "+n).join(" · "))}</p>${Object.entries(sub).map(([s,ds])=>`${Object.keys(sub).length>1?`<h3>${esc(s)} <span class="count">${ds.length}</span></h3>`:""}<div class="list">${ds.map(discRow).join("")}</div>`).join("")||'<p class="empty">Vuoto.</p>'}`;SHELFVIEW=false;
+  showPanel();
+}
+
 /* ---------- scaffali ---------- */
 function renderShelves(){
   SHELFVIEW=true;const m={};ALLD.forEach(d=>{(m[d.shelf||"—"]||(m[d.shelf||"—"]=[])).push(d)});
   const keys=Object.keys(m).sort((a,b)=>a.localeCompare(b,"it",{numeric:true}));
-  $("#out-scaffali").innerHTML=pbar([["shelf","Stampa tutti gli scaffali"]])+`<p class="hint">${keys.length} spazi. Tocca uno spazio per vedere i dischi nell'ordine in cui stanno.</p>`+keys.map(s=>{const l=m[s].sort((a,b)=>(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true})||a.code.localeCompare(b.code,"it",{numeric:true}));const cats=count(l,d=>d.cat).map(([c,n])=>`${c} ${n}`).join(" · ");
+  $("#out-scaffali").innerHTML=mapSVG()+pbar([["shelf","Stampa tutti gli scaffali"],["map","Stampa la mappa"]])+`<p class="hint">${keys.length} spazi. Tocca uno spazio per vedere i dischi nell'ordine in cui stanno.</p>`+keys.map(s=>{const l=m[s].sort((a,b)=>(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true})||a.code.localeCompare(b.code,"it",{numeric:true}));const cats=count(l,d=>d.cat).map(([c,n])=>`${c} ${n}`).join(" · ");
     return `<details class="shelfbox"><summary><span class="shelf big">${esc(s)}</span><span class="main"><b>${l.length} dischi</b><small>${esc(cats)}</small></span></summary><div class="list">${l.map(discRow).join("")}</div></details>`}).join("");SHELFVIEW=false;
 }
 /* ---------- numeri ---------- */
@@ -208,6 +231,7 @@ function printList(title,lines,cols){
 function doPrint(k){
   const cat=dcat?" – "+dcat:"";
   if(k==="dpos"||k==="shelf"){const l=ALLD.filter(d=>k==="shelf"||!dcat||d.cat===dcat).slice().sort(byPos);return printList("Dischi per posizione"+(k==="shelf"?"":cat),l.map(d=>`<b>${esc(posOf(d))}</b> ${esc(d.title)}`),2)}
+  if(k==="map"){$("#print").innerHTML=`<h1>I miei scaffali</h1><p class="psub">${new Date().toLocaleDateString("it-IT")}</p>`+mapSVG();return setTimeout(()=>window.print(),50)}
   if(k==="dtit"){const l=DISCS.filter(d=>!dcat||d.cat===dcat).slice().sort(byTit);return printList("Dischi per titolo"+cat,l.map(d=>`${esc(d.title)} <b>${esc([d,...d.copies].map(posOf).join(" + "))}</b>`),2)}
   if(k==="blet"||k==="ball"){const l=k==="ball"?SONGS:SONGS.filter(s=>(s.k[0]||"#")===letter);
     return printList(k==="ball"?"Brani":"Brani – "+letter.toUpperCase(),l.map(s=>`${esc(s.title)} <b>${esc([...new Set(s.v.map(t=>posOf(t.d)))].join(", "))}</b>`),2)}
@@ -222,6 +246,7 @@ function tab(name){cur=name;document.querySelectorAll("[data-tab]").forEach(b=>b
 
 document.addEventListener("click",e=>{
   const pe=e.target.closest("[data-print]");if(pe)return doPrint(pe.dataset.print);
+  const sm=e.target.closest("[data-shelfmap]");if(sm){e.preventDefault();return openShelf(sm.dataset.shelfmap)}
   const se=e.target.closest("[data-scrivi]");if(se)return scrivi(se.dataset.scrivi);
   const el=e.target.closest("[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-more],#panel-close");if(!el)return;
   if(el.matches("a"))e.preventDefault();

@@ -141,6 +141,18 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var
 @media (prefers-reduced-motion:no-preference){.sheet{animation:up .22s ease-out}@keyframes up{from{transform:translateY(24px);opacity:.6}}}
 
 .scrivi{margin:.4rem 0 .8rem;font-size:.85rem;color:var(--muted)}.scrivi button{font:inherit;font-weight:600;border:1px solid var(--ochre);color:var(--ochre);background:var(--ochre-soft);border-radius:999px;padding:5px 12px;cursor:pointer;margin-right:6px}
+.mapwrap{margin:6px 0 14px;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:8px}
+.map{width:100%;min-width:620px;height:auto;display:block}.mapscroll{overflow-x:auto}
+.map .mb rect{stroke:var(--ink);stroke-width:2;fill-opacity:.55;cursor:pointer}
+.map .mb:hover rect{fill-opacity:.85}
+.map .mb.empty rect{fill:var(--paper)!important;fill-opacity:1}
+.map .mx{fill:var(--line);stroke:var(--ink);stroke-width:2;opacity:.6}
+.map text{text-anchor:middle;dominant-baseline:middle;fill:var(--ink);font-family:var(--body);font-weight:700;pointer-events:none}
+.map text.n{font-weight:500;fill:var(--muted)}
+.map .mlab{text-anchor:start;font-size:22px;font-weight:400;fill:var(--muted)}
+.legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:.75rem;color:var(--muted);margin-top:6px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:4px;opacity:.7;vertical-align:-1px}
+@media print{#print .mapwrap{border:0}#print .map text{fill:#000}#print .map .mb rect{stroke:#000}}
 #print{display:none}
 .printbar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .printbar button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
