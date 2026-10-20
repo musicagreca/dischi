@@ -8,7 +8,11 @@ const czLink=(id,kind)=>id?`<a class="badge cz" href="${CANZ}?${kind||'song'}=${
 const siteLink=(id,label)=>id?`<a class="badge" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener">${label||'sul sito'} ↗</a>`:'';
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
-const splitN=f=>(f||"").split(/\s*(?:[,;\/()]|\s[–—-]\s)\s*/).map(x=>x.trim().replace(/^(διασκευή|διασκ\.|arr\.|el\.|elab\.)\s*/i,"").trim()).filter(Boolean);
+const QUAL=/^(1[89]\d\d|20\d\d|\d{4}\s*[–-]\s*\d{4}|ο\s+\S+|η\s+\S+|παλαι\S*|παλι\S*|νε[οό]\S*|μικρ\S*|μεγαλ\S*|παππο[υύ]\S*|εγγον\S*|πατερ\S*|πατέρ\S*|γιο\S*|θει\S*|θεί\S*|senior|junior|jr\.?|sr\.?|nonno|nipote|padre|figlio|zio|vecchio|giovane|il vecchio|il giovane)$/i;
+const protQ=f=>String(f||"").replace(/\(([^()]*)\)/g,(m,c)=>QUAL.test(c.trim())?"⟨"+c.trim()+"⟩":m);
+const unQ=s=>s.replace(/⟨([^⟩]*)⟩/g,"($1)");
+const parsePerf=x=>{x=protQ(x.trim());const m=x.match(/^(.*?)\s*(?:\(([^()]*)\))?$/);return m?{name:unQ(m[1].trim()),role:m[2]||""}:null};
+const splitN=f=>protQ(f).split(/\s*(?:[,;\/()]|\s[–—-]\s)\s*/).map(x=>unQ(x.trim().replace(/^(διασκευή|διασκ\.|arr\.|el\.|elab\.)\s*/i,"").trim())).filter(Boolean);
 function build(){
   DISCS=DATA.d.map(r=>({code:r[0],shelf:r[1],pos:r[2],box:r[3],no:r[4],cat:r[5],title:r[6],artist:r[7],genre:r[8],sub:r[9],year:r[10],label:r[11],catno:r[12],country:r[13],n:r[14],dur:r[15],sup:r[16],notes:r[17]}));
   BY={};DISCS.forEach(d=>{BY[d.code]=d;d.tracks=[];d.copies=[];d.k=norm([d.code,d.title,d.artist,d.label,d.catno,d.sub].join(" "))});
@@ -20,7 +24,7 @@ function build(){
   for(const [code,list] of Object.entries(DATA.t)){const d=BY[code];if(!d||d.copyOf)continue;
     for(const r of list){const t={d,n:r[0],title:r[1],tr:r[2],tipo:r[3],dur:r[4],mus:r[5],lyr:r[6],perf:r[7],note:r[8]};
       t.k=norm(t.title);t.kt=norm(t.tr);t.site=SITE_S[t.k]||"";t.cz=CS[t.k]||"";d.tracks.push(t);TR.push(t);
-      t.perfL=(t.perf||"").split(";").map(x=>{const m=x.trim().match(/^(.*?)\s*(?:\((.*)\))?$/);return m?{name:m[1].trim(),role:m[2]||""}:null}).filter(x=>x&&x.name);
+      t.perfL=(t.perf||"").split(";").map(parsePerf).filter(x=>x&&x.name);
       t.perfL.forEach(p=>p.name.split(/\s\/\s/).forEach(nm=>{nm=nm.trim();if(!nm||!norm(nm))return;addM(nm,"perf",t);if(p.role)MUS[norm(nm)].roles.add(p.role)}));
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
   DISCS.forEach(d=>d.tracks.sort((a,b)=>(+a.n||0)-(+b.n||0)));
