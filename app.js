@@ -163,7 +163,8 @@ function openMus(k){
   m.perf.forEach(t=>add(t,(t.perfL.find(p=>norm(p.name)===k||p.name.split(/\s\/\s/).some(n=>norm(n)===k))||{}).role||"interprete"));m.mus.forEach(t=>add(t,"musica"));m.lyr.forEach(t=>add(t,"testo"));
   Object.values(discs).forEach(x=>x.items.sort((a,b)=>(+a[0].n||0)-(+b[0].n||0)));const list=Object.values(discs).sort((a,b)=>b.items.length-a.items.length);
   const life=[m.born&&"Nato: "+m.born,m.died&&"Morto: "+m.died].filter(Boolean).join(" · ");
-  $("#panel-body").innerHTML=`<p class="eyebrow">Musicista ${siteLink(m.site,'scheda sul sito')} ${czLink(m.cz,'persona')}</p><h2>${esc(m.name)}</h2><p class="by">${esc([m.it,m.nick&&"«"+m.nick+"»"].filter(Boolean).join(" · "))}</p>
+  const needs=isGreek(m.name)?!m.site:!m.cz;
+  $("#panel-body").innerHTML=`<p class="eyebrow">Musicista ${siteLink(m.site,'scheda sul sito')} ${czLink(m.cz,'persona')}</p><h2>${esc(m.name)}</h2>${needs?`<p class="scrivi"><button type="button" data-scrivi="${esc(k)}">✍️ Scrivi la scheda</button> <span id="scrivi-msg">Copia i dati per l'admin ${isGreek(m.name)?"del sito":"del canzoniere"}.</span></p>`:""}<p class="by">${esc([m.it,m.nick&&"«"+m.nick+"»"].filter(Boolean).join(" · "))}</p>
   ${life?`<p class="notes">${esc(life)}</p>`:""}${m.instr||m.rl?`<p class="notes">${esc([m.rl,m.instr].filter(Boolean).join(" — "))}</p>`:""}
   <div class="tiles small"><div><b>${list.length}</b><span>dischi</span></div><div><b>${m.perf.length}</b><span>come interprete</span></div><div><b>${m.mus.length}</b><span>come compositore</span></div><div><b>${m.lyr.length}</b><span>come paroliere</span></div></div>
   <h3>Nei tuoi dischi</h3>${list.map(x=>`<div class="mdisc">${discRow(x.d)}<ul>${x.items.map(([t,r])=>`<li><span class="tn">${esc(t.n)}</span> ${esc(t.title)} <span class="role">${esc(r.join(", "))}</span></li>`).join("")}</ul></div>`).join("")}`;
@@ -172,6 +173,22 @@ function openMus(k){
 let lastFocus=null;
 function showPanel(){lastFocus=document.activeElement;$("#panel").hidden=false;$("#panel").scrollTop=0;$("#panel-close").focus();document.body.classList.add("locked")}
 function closePanel(){$("#panel").hidden=true;document.body.classList.remove("locked");lastFocus&&lastFocus.focus&&lastFocus.focus()}
+
+/* ---------- scrivi la scheda ---------- */
+const INSTR={"λυρα":"lira","λαουτο":"laouto","βιολι":"violino","κλαρινο":"clarinetto","μπουζουκι":"bouzouki","κιθαρα":"chitarra","μπαγλαμασ":"baglamàs","σαντουρι":"santouri","ουτι":"oud","κανονακι":"kanonaki","ακορντεον":"fisarmonica","πιανο":"pianoforte","κρουστα":"percussioni","μπασο":"basso","τουμπερλεκι":"toumberleki","ασκομαντουρα":"askomandoura","νταουλι":"daouli","ζουρνασ":"zurna","φλογερα":"flauto","τσαμπουνα":"tsambouna","μαντολινο":"mandolino","τζουρασ":"tzouras","μπουλγαρι":"boulgari","γκαιντα":"gaida","λαφτα":"lafta","πολιτικη λυρα":"lira di Costantinopoli","νεϊ":"ney","νει":"ney","ταμπουρασ":"tambouras","κεμεντζεσ":"kemenche","τρομπετα":"tromba","σαξοφωνο":"sassofono","ντραμσ":"batteria","πληκτρα":"tastiere"};
+const isGreek=s=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(s);
+function schedaText(m){
+  const c=mcounts(m);const roles=[];if(c.lyr)roles.push("at");if(c.mus)roles.push("am");if(c.sing||c.ins)roles.push("ar");
+  const ins=new Set();m.roles.forEach(r=>r.split(/[\/,]|\s+και\s+|\s+e\s+/).forEach(x=>{const k=norm(x);if(!k||VOC.test(x))return;ins.add(INSTR[k]||x.trim().toLowerCase())}));
+  const ruoli=[c.sing&&"cantante",c.ins&&"musicista",c.mus&&"compositore",c.lyr&&"paroliere"].filter(Boolean).join(", ");
+  const discs={};const add=(t,r)=>{const x=discs[t.d.code]||(discs[t.d.code]={d:t.d,r:new Set(),n:0});x.r.add(r);x.n++};
+  m.perf.forEach(t=>add(t,"interprete"));m.mus.forEach(t=>add(t,"musica"));m.lyr.forEach(t=>add(t,"testo"));
+  const dl=Object.values(discs).sort((a,b)=>b.n-a.n).slice(0,40).map(x=>`${posOf(x.d)} — ${x.d.title}${x.d.year?" ("+x.d.year+")":""}: ${[...x.r].join(", ")}, ${x.n} ${x.n==1?"brano":"brani"}`);
+  return "SCHEDA-DISCHI:"+JSON.stringify({name:m.name,nameit:m.it||"",nick:m.nick||"",born:m.born||"",died:m.died||"",roles,ruoli,instr:[...ins].join(", "),discs:dl,tot:m.cnt});
+}
+async function copyText(t){try{await navigator.clipboard.writeText(t);return true}catch(e){const a=document.createElement("textarea");a.value=t;document.body.appendChild(a);a.select();let ok=false;try{ok=document.execCommand("copy")}catch(e){}a.remove();return ok}}
+async function scrivi(k){const m=MUS[k];if(!m)return;const ok=await copyText(schedaText(m));const where=isGreek(m.name)?"l'<b>admin del sito</b> (blog_admin), vai su «👤 Persone»":"l'<b>admin del canzoniere</b>, vai su «Schede»";
+  $("#scrivi-msg").innerHTML=ok?`✓ Copiato. Ora apri ${where} e premi <b>«📋 Incolla dai dischi»</b>.`:"Copia non riuscita: riprova dal computer.";}
 
 /* ---------- stampa ---------- */
 const posOf=d=>d.shelf?d.shelf+(d.pos?" · "+d.pos:""):"—";
@@ -201,6 +218,7 @@ function tab(name){cur=name;document.querySelectorAll("[data-tab]").forEach(b=>b
 
 document.addEventListener("click",e=>{
   const pe=e.target.closest("[data-print]");if(pe)return doPrint(pe.dataset.print);
+  const se=e.target.closest("[data-scrivi]");if(se)return scrivi(se.dataset.scrivi);
   const el=e.target.closest("[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-more],#panel-close");if(!el)return;
   if(el.matches("a"))e.preventDefault();
   if(el.id==="panel-close")return closePanel();
