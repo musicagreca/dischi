@@ -125,7 +125,7 @@ function renderMus(){
 function renderShelves(){
   SHELFVIEW=true;const m={};ALLD.forEach(d=>{(m[d.shelf||"—"]||(m[d.shelf||"—"]=[])).push(d)});
   const keys=Object.keys(m).sort((a,b)=>a.localeCompare(b,"it",{numeric:true}));
-  $("#out-scaffali").innerHTML=pbar([["shelf","Stampa tutti gli scaffali"]])+`<p class="hint">${keys.length} spazi. Tocca uno spazio per vedere i dischi nell'ordine in cui stanno.</p>`+keys.map(s=>{const l=m[s].sort((a,b)=>(+a.pos||1e9)-(+b.pos||1e9)||a.code.localeCompare(b.code,"it",{numeric:true}));const cats=count(l,d=>d.cat).map(([c,n])=>`${c} ${n}`).join(" · ");
+  $("#out-scaffali").innerHTML=pbar([["shelf","Stampa tutti gli scaffali"]])+`<p class="hint">${keys.length} spazi. Tocca uno spazio per vedere i dischi nell'ordine in cui stanno.</p>`+keys.map(s=>{const l=m[s].sort((a,b)=>(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true})||a.code.localeCompare(b.code,"it",{numeric:true}));const cats=count(l,d=>d.cat).map(([c,n])=>`${c} ${n}`).join(" · ");
     return `<details class="shelfbox"><summary><span class="shelf big">${esc(s)}</span><span class="main"><b>${l.length} dischi</b><small>${esc(cats)}</small></span></summary><div class="list">${l.map(discRow).join("")}</div></details>`}).join("");SHELFVIEW=false;
 }
 /* ---------- numeri ---------- */
@@ -175,7 +175,7 @@ function closePanel(){$("#panel").hidden=true;document.body.classList.remove("lo
 
 /* ---------- stampa ---------- */
 const posOf=d=>d.shelf?d.shelf+(d.pos?" · "+d.pos:""):"—";
-const byPos=(a,b)=>(!a.shelf-!b.shelf)||String(a.shelf||"").localeCompare(String(b.shelf||""),"it",{numeric:true})||(parseFloat(a.pos)||1e9)-(parseFloat(b.pos)||1e9)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true});
+const byPos=(a,b)=>(!a.shelf-!b.shelf)||String(a.shelf||"").localeCompare(String(b.shelf||""),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true});
 const byTit=(a,b)=>norm(a.title).localeCompare(norm(b.title),"el");
 const pbar=btns=>`<div class="printbar">${btns.map(([k,l])=>`<button type="button" data-print="${k}">🖨 ${l}</button>`).join("")}</div>`;
 let MPRINT=[];
