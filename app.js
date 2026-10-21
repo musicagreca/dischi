@@ -6,6 +6,7 @@ let DATA={d:[],t:{},m:[],date:"",ts:0},LK={ss:{},sp:{},cs:{},cp:{}}, DISCS=[], B
 const SITE='https://musicagreca.com/';const CANZ='https://musicagreca.github.io/musica-italiana/';let CS={},CP={};
 const czLink=(id,kind)=>id?`<a class="badge cz" href="${CANZ}?${kind||'song'}=${encodeURIComponent(id)}" target="_blank" rel="noopener">canzoniere ↗</a>`:'';
 const siteLink=(id,label)=>id?`<a class="badge" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener">${label||'sul sito'} ↗</a>`:'';
+const loose=s=>norm(s).replace(/νδ/g,"ντ").replace(/γγ/g,"γκ").replace(/(^|\s)(και|κι|κ)(?=\s|$)/g,"$1κ").replace(/(\S+?)σ(?=\s|$)/g,"$1").replace(/ει|οι|υ|η/g,"ι").replace(/ω/g,"ο").replace(/\s+/g," ").trim();
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
 const QUAL=/^(1[89]\d\d|20\d\d|\d{4}\s*[–-]\s*\d{4}|ο\s+\S+|η\s+\S+|παλαι\S*|παλι\S*|νε[οό]\S*|μικρ\S*|μεγαλ\S*|παππο[υύ]\S*|εγγον\S*|πατερ\S*|πατέρ\S*|γιο\S*|θει\S*|θεί\S*|senior|junior|jr\.?|sr\.?|nonno|nipote|padre|figlio|zio|vecchio|giovane|il vecchio|il giovane)$/i;
@@ -23,7 +24,7 @@ function build(){
   const addM=(name,kind,t)=>{name=name.trim();if(!name)return;const k=norm(name);if(!k)return;(MUS[k]||(MUS[k]={name,perf:[],mus:[],lyr:[],roles:new Set()}))[kind].push(t);};
   for(const [code,list] of Object.entries(DATA.t)){const d=BY[code];if(!d||d.copyOf)continue;
     for(const r of list){const t={d,n:r[0],title:r[1],tr:r[2],tipo:r[3],dur:r[4],mus:r[5],lyr:r[6],perf:r[7],note:r[8]};
-      t.k=norm(t.title);t.kt=norm(t.tr);t.site=SITE_S[t.k]||"";t.cz=CS[t.k]||"";d.tracks.push(t);TR.push(t);
+      t.k=norm(t.title);t.kt=norm(t.tr);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||"";t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
       t.perfL=(t.perf||"").split(";").map(parsePerf).filter(x=>x&&x.name);
       t.perfL.forEach(p=>p.name.split(/\s\/\s/).forEach(nm=>{nm=nm.trim();if(!nm||!norm(nm))return;addM(nm,"perf",t);if(p.role)MUS[norm(nm)].roles.add(p.role)}));
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
@@ -309,7 +310,7 @@ let cur="cerca";
 function rerender(){build();Object.keys(done).forEach(k=>done[k]=0);tab(cur)}
 const getJ=(u,o)=>fetch(u,o).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
 function linksFrom(site,canz){
-  const ss={},sp={},cs={},cp={};const put=(m,k,v)=>{k=norm(k);if(k&&!m[k])m[k]=v};
+  const ss={},sp={},cs={},cp={};const put=(m,k,v)=>{const l=loose(k);k=norm(k);if(k&&!m[k])m[k]=v;if(l&&!m[" "+l])m[" "+l]=v};
   const clean=x=>String(x||"").replace(/\(.*?\)/g,"");
   if(site){(site.songs||[]).forEach(x=>{put(ss,x.tgr,x.id);String(x.alias||"").split(/[,;\/]/).forEach(a=>put(ss,a,x.id))});
     (site.persons||[]).forEach(p=>{put(sp,clean(p.name),p.id);put(sp,p.name,p.id);String(p.alias||p.aliases||"").split(/[,;]/).forEach(a=>put(sp,a,p.id))})}
