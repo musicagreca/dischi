@@ -7,6 +7,8 @@ const SITE='https://musicagreca.com/';const CANZ='https://musicagreca.github.io/
 const czLink=(id,kind)=>id?`<a class="badge cz" href="${CANZ}?${kind||'song'}=${encodeURIComponent(id)}" target="_blank" rel="noopener">canzoniere ↗</a>`:'';
 const siteLink=(id,label)=>id?`<a class="badge" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener">${label||'sul sito'} ↗</a>`:'';
 const loose=s=>norm(s).replace(/νδ/g,"ντ").replace(/γγ/g,"γκ").replace(/(^|\s)(και|κι|κ)(?=\s|$)/g,"$1κ").replace(/(\S+?)σ(?=\s|$)/g,"$1").replace(/ει|οι|υ|η/g,"ι").replace(/ω/g,"ο").replace(/\s+/g," ").trim();
+const FN={"γιωργησ":"γιωργοσ","γεωργιοσ":"γιωργοσ","θεοδωροσ":"θοδωροσ","ιωαννησ":"γιαννησ","νικολαοσ":"νικοσ","αναστασιοσ":"τασοσ","βασιλειοσ":"βασιλησ","εμμανουηλ":"μανωλησ","κωνσταντινοσ":"κωστασ","δημητριοσ":"δημητρησ","μιχαηλ":"μιχαλησ","σπυριδων":"σπυροσ","ελευθεριοσ":"λευτερησ","στυλιανοσ":"στελιοσ","αθανασιοσ":"θανασησ","γρηγοριοσ":"γρηγορησ","αντωνιοσ":"αντωνησ","χαραλαμποσ":"μπαμπησ","λαμπησ":"μπαμπησ"};
+const canonP=k=>{const w=norm(k).split(" ");if(w.length>1&&FN[w[0]])w[0]=FN[w[0]];return "~"+w.join(" ")};
 const store={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 
 const QUAL=/^(1[89]\d\d|20\d\d|\d{4}\s*[–-]\s*\d{4}|ο\s+\S+|η\s+\S+|παλαι\S*|παλι\S*|νε[οό]\S*|μικρ\S*|μεγαλ\S*|παππο[υύ]\S*|εγγον\S*|πατερ\S*|πατέρ\S*|γιο\S*|θει\S*|θεί\S*|senior|junior|jr\.?|sr\.?|nonno|nipote|padre|figlio|zio|vecchio|giovane|il vecchio|il giovane)$/i;
@@ -36,7 +38,7 @@ function build(){MAYBE=null;
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
   DISCS.forEach(d=>d.tracks.sort((a,b)=>(+a.n||0)-(+b.n||0)));
   (DATA.m||[]).forEach(r=>{const k=norm(r[0]);const m=MUS[k]||(MUS[k]={name:r[0],perf:[],mus:[],lyr:[],roles:new Set()});m.it=r[1];m.born=r[2];m.died=r[3];m.rl=r[4];m.instr=r[5];m.nick=r[6];m.siteFlag=r[7]});
-  MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)).sort((a,b)=>b.cnt-a.cnt);
+  MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||SITE_P[canonP(m.name)]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)).sort((a,b)=>b.cnt-a.cnt);
   const g={};TR.forEach(t=>{if(!t.k)return;(g[t.k]||(g[t.k]={title:t.title,k:t.k,v:[]})).v.push(t)});
   SONGS=Object.values(g).sort((a,b)=>a.k.localeCompare(b.k,"el"));
   $("#stamp").textContent=DISCS.length?`${DISCS.length.toLocaleString("it")} dischi${ALLD.length>DISCS.length?" (+"+(ALLD.length-DISCS.length)+" doppi)":""} · ${TR.length.toLocaleString("it")} brani · aggiornato al ${DATA.date}`:"";
@@ -320,7 +322,7 @@ function linksFrom(site,canz){
   const ss={},sp={},cs={},cp={},st={};const put=(m,k,v)=>{const l=loose(k);k=norm(k);if(k&&!m[k])m[k]=v;if(l&&!m[" "+l])m[" "+l]=v};
   const clean=x=>String(x||"").replace(/\(.*?\)/g,"");
   if(site){(site.songs||[]).forEach(x=>{st[x.id]=x.tgr+(x.alias?" ("+x.alias+")":"");put(ss,x.tgr,x.id);String(x.alias||"").split(/\s*[\/;|]\s*/).forEach(a=>put(ss,a,x.id))});
-    (site.persons||[]).forEach(p=>{put(sp,clean(p.name),p.id);put(sp,p.name,p.id);String(p.alias||p.aliases||"").split(/[,;]/).forEach(a=>put(sp,a,p.id))})}
+    (site.persons||[]).forEach(p=>{put(sp,clean(p.name),p.id);put(sp,p.name,p.id);if(!sp[canonP(clean(p.name))])sp[canonP(clean(p.name))]=p.id;String(p.alias||p.aliases||"").split(/[,;]/).forEach(a=>put(sp,a,p.id))})}
   if(canz){(canz.canzoni||[]).forEach(x=>{if(x.id)put(cs,x.titolo,x.id)});
     (canz.persone||[]).forEach(p=>{put(cp,p.nome,p.id);String(p.alias||"").split(",").forEach(a=>put(cp,a,p.id))})}
   return {ss,sp,cs,cp,st};
