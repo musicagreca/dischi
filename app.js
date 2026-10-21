@@ -30,7 +30,7 @@ function build(){MAYBE=null;
   const addM=(name,kind,t)=>{name=name.trim();if(!name)return;const k=norm(name);if(!k)return;(MUS[k]||(MUS[k]={name,perf:[],mus:[],lyr:[],roles:new Set()}))[kind].push(t);};
   for(const [code,list] of Object.entries(DATA.t)){const d=BY[code];if(!d||d.copyOf)continue;
     for(const r of list){const t={d,n:r[0],title:r[1],tr:r[2],tipo:r[3],dur:r[4],mus:r[5],lyr:r[6],perf:r[7],note:r[8]};
-      t.k=norm(t.title);t.kt=norm(t.tr);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||"";if(!t.site&&t.k)t.siteMaybe=maybeSite(loose(t.title));t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
+      t.k=norm(t.title);t.kt=norm(t.tr);const _pm=String(t.title).match(/^(.*?)\s*\(([^()]+)\)\s*$/);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||(_pm&&(SITE_S[" "+loose(_pm[1])]||SITE_S[" "+loose(_pm[2])]))||"";if(!t.site&&t.k)t.siteMaybe=maybeSite(loose(t.title));t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
       t.perfL=(t.perf||"").split(";").map(parsePerf).filter(x=>x&&x.name);
       t.perfL.forEach(p=>p.name.split(/\s\/\s/).forEach(nm=>{nm=nm.trim();if(!nm||!norm(nm))return;addM(nm,"perf",t);if(p.role)MUS[norm(nm)].roles.add(p.role)}));
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
@@ -103,7 +103,7 @@ function renderDischi(){
 /* ---------- brani ---------- */
 let letter="";
 let bfilt="";
-const maybeLink=id=>`<a class="badge maybe" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Titolo simile sul sito: controlla">forse sul sito ↗</a>`;
+const maybeLink=id=>`<a class="badge maybe" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Somiglia a: ${esc((LK.st||{})[id]||"")}">forse sul sito ↗</a><small class="maybe-why">somiglia a: ${esc((LK.st||{})[id]||"?")}</small>`;
 const tBadge=t=>t.site?siteLink(t.site):t.siteMaybe?maybeLink(t.siteMaybe):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
 const sSite=s=>s.v.some(t=>t.site),sMaybe=s=>!sSite(s)&&s.v.some(t=>t.siteMaybe),sCz=s=>s.v.some(t=>t.cz),sGr=s=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(s.title);
 const BF={"":["Tutti",s=>true],si:["Sul sito",sSite],maybe:["Forse sul sito",sMaybe],no:["Greci non ancora sul sito",s=>sGr(s)&&!sSite(s)&&!sMaybe(s)],cz:["Nel canzoniere",sCz],czno:["Altri non nel canzoniere",s=>!sGr(s)&&!sCz(s)]};
@@ -317,13 +317,13 @@ let cur="cerca";
 function rerender(){build();Object.keys(done).forEach(k=>done[k]=0);tab(cur)}
 const getJ=(u,o)=>fetch(u,o).then(r=>{if(!r.ok)throw new Error(r.status);return r.json()});
 function linksFrom(site,canz){
-  const ss={},sp={},cs={},cp={};const put=(m,k,v)=>{const l=loose(k);k=norm(k);if(k&&!m[k])m[k]=v;if(l&&!m[" "+l])m[" "+l]=v};
+  const ss={},sp={},cs={},cp={},st={};const put=(m,k,v)=>{const l=loose(k);k=norm(k);if(k&&!m[k])m[k]=v;if(l&&!m[" "+l])m[" "+l]=v};
   const clean=x=>String(x||"").replace(/\(.*?\)/g,"");
-  if(site){(site.songs||[]).forEach(x=>{put(ss,x.tgr,x.id);String(x.alias||"").split(/\s*[\/;|]\s*/).forEach(a=>put(ss,a,x.id))});
+  if(site){(site.songs||[]).forEach(x=>{st[x.id]=x.tgr+(x.alias?" ("+x.alias+")":"");put(ss,x.tgr,x.id);String(x.alias||"").split(/\s*[\/;|]\s*/).forEach(a=>put(ss,a,x.id))});
     (site.persons||[]).forEach(p=>{put(sp,clean(p.name),p.id);put(sp,p.name,p.id);String(p.alias||p.aliases||"").split(/[,;]/).forEach(a=>put(sp,a,p.id))})}
   if(canz){(canz.canzoni||[]).forEach(x=>{if(x.id)put(cs,x.titolo,x.id)});
     (canz.persone||[]).forEach(p=>{put(cp,p.nome,p.id);String(p.alias||"").split(",").forEach(a=>put(cp,a,p.id))})}
-  return {ss,sp,cs,cp};
+  return {ss,sp,cs,cp,st};
 }
 (async()=>{
   const t0=store.get("disco-tab");cur=views[t0]?t0:"cerca";
@@ -337,7 +337,7 @@ function linksFrom(site,canz){
   try{const j=await getJ("dischi.json",{cache:"no-cache"});if(j&&j.d&&(!DATA.ts||(j.ts||0)>DATA.ts)){DATA=j;idbPut("data",j);rerender()}}
   catch(e){if(!DISCS.length)$("#out-cerca").innerHTML='<p class="hint">Non riesco a caricare il catalogo: controlla la connessione e riapri.</p>'}
   const [site,canz]=await Promise.all([getJ(SITE+"dati.json",{cache:"no-cache"}).catch(()=>null),getJ(CANZ+"dati.json",{cache:"no-cache"}).catch(()=>null)]);
-  if(site||canz){const n=linksFrom(site,canz);if(!site){n.ss=LK.ss;n.sp=LK.sp}if(!canz){n.cs=LK.cs;n.cp=LK.cp}
+  if(site||canz){const n=linksFrom(site,canz);if(!site){n.ss=LK.ss;n.sp=LK.sp;n.st=LK.st}if(!canz){n.cs=LK.cs;n.cp=LK.cp}
     if(JSON.stringify(n)!==JSON.stringify(LK)){LK=n;idbPut("links",n);rerender()}}
 })();
 })();
