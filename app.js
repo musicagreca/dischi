@@ -14,7 +14,13 @@ const protQ=f=>String(f||"").replace(/\(([^()]*)\)/g,(m,c)=>QUAL.test(c.trim())?
 const unQ=s=>s.replace(/⟨([^⟩]*)⟩/g,"($1)");
 const parsePerf=x=>{x=protQ(x.trim());const m=x.match(/^(.*?)\s*(?:\(([^()]*)\))?$/);return m?{name:unQ(m[1].trim()),role:m[2]||""}:null};
 const splitN=f=>protQ(f).split(/\s*(?:[,;\/()]|\s[–—-]\s)\s*/).map(x=>unQ(x.trim().replace(/^(διασκευή|διασκ\.|arr\.|el\.|elab\.)\s*/i,"").trim())).filter(Boolean);
-function build(){
+let MAYBE=null;
+function maybeSite(l){
+  if(!MAYBE){MAYBE=Object.keys(SITE_S).filter(k=>k[0]===" "&&k.trim().split(" ").length>=3).map(k=>[k.trim(),SITE_S[k]])}
+  for(const [k,id] of MAYBE){if(l.startsWith(k+" ")||(l.split(" ").length>=3&&k.startsWith(l+" ")))return id}
+  return "";
+}
+function build(){MAYBE=null;
   DISCS=DATA.d.map(r=>({code:r[0],shelf:r[1],pos:r[2],box:r[3],no:r[4],cat:r[5],title:r[6],artist:r[7],genre:r[8],sub:r[9],year:r[10],label:r[11],catno:r[12],country:r[13],n:r[14],dur:r[15],sup:r[16],notes:r[17]}));
   BY={};DISCS.forEach(d=>{BY[d.code]=d;d.tracks=[];d.copies=[];d.k=norm([d.code,d.title,d.artist,d.label,d.catno,d.sub].join(" "))});
   DISCS.forEach(d=>{const b=/B$/i.test(d.code)&&BY[d.code.slice(0,-1)];if(b&&b!==d){d.copyOf=b;b.copies.push(d)}});
@@ -24,7 +30,7 @@ function build(){
   const addM=(name,kind,t)=>{name=name.trim();if(!name)return;const k=norm(name);if(!k)return;(MUS[k]||(MUS[k]={name,perf:[],mus:[],lyr:[],roles:new Set()}))[kind].push(t);};
   for(const [code,list] of Object.entries(DATA.t)){const d=BY[code];if(!d||d.copyOf)continue;
     for(const r of list){const t={d,n:r[0],title:r[1],tr:r[2],tipo:r[3],dur:r[4],mus:r[5],lyr:r[6],perf:r[7],note:r[8]};
-      t.k=norm(t.title);t.kt=norm(t.tr);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||"";t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
+      t.k=norm(t.title);t.kt=norm(t.tr);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||"";if(!t.site&&t.k)t.siteMaybe=maybeSite(loose(t.title));t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
       t.perfL=(t.perf||"").split(";").map(parsePerf).filter(x=>x&&x.name);
       t.perfL.forEach(p=>p.name.split(/\s\/\s/).forEach(nm=>{nm=nm.trim();if(!nm||!norm(nm))return;addM(nm,"perf",t);if(p.role)MUS[norm(nm)].roles.add(p.role)}));
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
@@ -70,7 +76,7 @@ function search(q){
 }
 function songBlock(s){
   const site=(s.v.find(t=>t.site)||{}).site;const cz=(s.v.find(t=>t.cz)||{}).cz;
-  return `<div class="song"><div class="songhead"><b>${esc(s.title)}</b>${s.v[0].tr?`<i>${esc(s.v[0].tr)}</i>`:""}<span class="count">${s.v.length} ${s.v.length==1?"versione":"versioni"}</span>${siteLink(site)}${czLink(cz)}${!site&&!cz&&sGr(s)?'<span class="badge off">non sul sito</span>':""}</div>
+  return `<div class="song"><div class="songhead"><b>${esc(s.title)}</b>${s.v[0].tr?`<i>${esc(s.v[0].tr)}</i>`:""}<span class="count">${s.v.length} ${s.v.length==1?"versione":"versioni"}</span>${siteLink(site)}${czLink(cz)}${!site&&!cz&&sMaybe(s)?maybeLink(s.v.find(t=>t.siteMaybe).siteMaybe):!site&&!cz&&sGr(s)?'<span class="badge off">non sul sito</span>':""}</div>
   <ul>${s.v.map(t=>`<li><button class="ver" data-disc="${esc(t.d.code)}">${covImg(t.d,"xs")}<span class="code">${esc(t.d.code)}</span><span>${esc(t.perfL.map(p=>p.name).join(", ")||t.d.artist||"")}<small>${esc(t.d.title)}</small></span>${shelfOf(t.d)}</button></li>`).join("")}</ul></div>`;
 }
 const musRow=m=>{const c=mcounts(m);const parts=[c.sing&&`${c.sing} cantate`,c.ins&&`${c.ins} suonate`,c.mus&&`${c.mus} composte`,c.lyr&&`${c.lyr} testi`].filter(Boolean).join(" · ");
@@ -97,9 +103,10 @@ function renderDischi(){
 /* ---------- brani ---------- */
 let letter="";
 let bfilt="";
-const tBadge=t=>t.site?siteLink(t.site):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
-const sSite=s=>s.v.some(t=>t.site),sCz=s=>s.v.some(t=>t.cz),sGr=s=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(s.title);
-const BF={"":["Tutti",s=>true],si:["Sul sito",sSite],no:["Greci non ancora sul sito",s=>sGr(s)&&!sSite(s)],cz:["Nel canzoniere",sCz],czno:["Altri non nel canzoniere",s=>!sGr(s)&&!sCz(s)]};
+const maybeLink=id=>`<a class="badge maybe" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Titolo simile sul sito: controlla">forse sul sito ↗</a>`;
+const tBadge=t=>t.site?siteLink(t.site):t.siteMaybe?maybeLink(t.siteMaybe):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
+const sSite=s=>s.v.some(t=>t.site),sMaybe=s=>!sSite(s)&&s.v.some(t=>t.siteMaybe),sCz=s=>s.v.some(t=>t.cz),sGr=s=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(s.title);
+const BF={"":["Tutti",s=>true],si:["Sul sito",sSite],maybe:["Forse sul sito",sMaybe],no:["Greci non ancora sul sito",s=>sGr(s)&&!sSite(s)&&!sMaybe(s)],cz:["Nel canzoniere",sCz],czno:["Altri non nel canzoniere",s=>!sGr(s)&&!sCz(s)]};
 const bList=()=>SONGS.filter(BF[bfilt][1]);
 function renderBrani(){
   const first=s=>(s.k[0]||"#");
