@@ -69,7 +69,7 @@ function search(q){
 }
 function songBlock(s){
   const site=(s.v.find(t=>t.site)||{}).site;const cz=(s.v.find(t=>t.cz)||{}).cz;
-  return `<div class="song"><div class="songhead"><b>${esc(s.title)}</b>${s.v[0].tr?`<i>${esc(s.v[0].tr)}</i>`:""}<span class="count">${s.v.length} ${s.v.length==1?"versione":"versioni"}</span>${siteLink(site)}${czLink(cz)}</div>
+  return `<div class="song"><div class="songhead"><b>${esc(s.title)}</b>${s.v[0].tr?`<i>${esc(s.v[0].tr)}</i>`:""}<span class="count">${s.v.length} ${s.v.length==1?"versione":"versioni"}</span>${siteLink(site)}${czLink(cz)}${!site&&!cz&&sGr(s)?'<span class="badge off">non sul sito</span>':""}</div>
   <ul>${s.v.map(t=>`<li><button class="ver" data-disc="${esc(t.d.code)}">${covImg(t.d,"xs")}<span class="code">${esc(t.d.code)}</span><span>${esc(t.perfL.map(p=>p.name).join(", ")||t.d.artist||"")}<small>${esc(t.d.title)}</small></span>${shelfOf(t.d)}</button></li>`).join("")}</ul></div>`;
 }
 const musRow=m=>{const c=mcounts(m);const parts=[c.sing&&`${c.sing} cantate`,c.ins&&`${c.ins} suonate`,c.mus&&`${c.mus} composte`,c.lyr&&`${c.lyr} testi`].filter(Boolean).join(" · ");
@@ -95,13 +95,20 @@ function renderDischi(){
 }
 /* ---------- brani ---------- */
 let letter="";
+let bfilt="";
+const tBadge=t=>t.site?siteLink(t.site):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
+const sSite=s=>s.v.some(t=>t.site),sCz=s=>s.v.some(t=>t.cz),sGr=s=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(s.title);
+const BF={"":["Tutti",s=>true],si:["Sul sito",sSite],no:["Greci non ancora sul sito",s=>sGr(s)&&!sSite(s)],cz:["Nel canzoniere",sCz],czno:["Altri non nel canzoniere",s=>!sGr(s)&&!sCz(s)]};
+const bList=()=>SONGS.filter(BF[bfilt][1]);
 function renderBrani(){
   const first=s=>(s.k[0]||"#");
-  const letters=[...new Set(SONGS.map(first))];
-  if(!letter)letter=letters.find(l=>/[α-ω]/.test(l))||letters[0];
-  const list=SONGS.filter(s=>first(s)===letter);
-  $("#out-brani").innerHTML=`<p class="hint">${SONGS.length.toLocaleString("it")} canzoni diverse. Ogni canzone mostra tutti i dischi in cui c'è.</p>${pbar([["blet","Stampa questa lettera"],["ball","Stampa tutti i brani"]])}<div class="az">${letters.map(l=>`<button class="${l===letter?"on":""}" data-letter="${esc(l)}">${esc(l.toUpperCase())}</button>`).join("")}</div>
-  <div>${list.slice(0,300).map(songBlock).join("")}</div>${list.length>300?`<p class="hint">Mostro le prime 300 di ${list.length}: usa la ricerca per trovare le altre.</p>`:""}`;
+  const base=bList();
+  const letters=[...new Set(base.map(first))];
+  if(!letters.includes(letter))letter=letters.find(l=>/[α-ω]/.test(l))||letters[0]||"";
+  const list=base.filter(s=>first(s)===letter);
+  const chips=Object.entries(BF).map(([k,[l,f]])=>`<button class="chip ${bfilt===k?"on":""}" data-bfilt="${k}">${l} <span>${SONGS.filter(f).length.toLocaleString("it")}</span></button>`).join("");
+  $("#out-brani").innerHTML=`<p class="hint">${SONGS.length.toLocaleString("it")} canzoni diverse. Ogni canzone mostra tutti i dischi in cui c'è.</p><div class="chips">${chips}</div>${bfilt==="no"?`<p class="hint">Canzoni con titolo greco che nei tuoi dischi ci sono ma su musicagreca.com non ancora. In cima alla lettera, quelle con più versioni.</p>`:""}${pbar([["blet","Stampa questa lettera"],["ball","Stampa tutto l'elenco"]])}<div class="az">${letters.map(l=>`<button class="${l===letter?"on":""}" data-letter="${esc(l)}">${esc(l.toUpperCase())}</button>`).join("")}</div>
+  <div>${(bfilt==="no"?list.slice().sort((a,b)=>b.v.length-a.v.length):list).slice(0,300).map(songBlock).join("")}</div>${list.length>300?`<p class="hint">Mostro le prime 300 di ${list.length}: usa la ricerca per trovare le altre.</p>`:""}`;
 }
 /* ---------- musicisti ---------- */
 let mshown=150,mq="",mrole="",msite="",msort="n",mlet="";
@@ -180,7 +187,7 @@ function openDisc(code){
   <dl class="facts">${f("Anno",d.year)}${f("Etichetta",d.label)}${f("N. catalogo",d.catno)}${f("Paese",d.country)}${f("Genere",[d.genre,d.sub].filter(Boolean).join(" · "))}${f("Durata",d.dur)}</dl>
   ${d.notes?`<p class="notes">${esc(d.notes)}</p>`:""}
   <h3>Brani <span class="count">${d.tracks.length}</span></h3>
-  <ol class="tracks">${d.tracks.map(t=>`<li><span class="tn">${esc(t.n)}</span><div><b><a href="#" data-q="${esc(t.title)}">${esc(t.title)}</a></b>${t.site?' '+siteLink(t.site):""}${t.cz?' '+czLink(t.cz):""}${t.tr?`<i> ${esc(t.tr)}</i>`:""}${t.tipo?`<small class="tipo">${esc(t.tipo)}</small>`:""}
+  <ol class="tracks">${d.tracks.map(t=>`<li><span class="tn">${esc(t.n)}</span><div><b><a href="#" data-q="${esc(t.title)}">${esc(t.title)}</a></b>${' '+tBadge(t)}${t.tr?`<i> ${esc(t.tr)}</i>`:""}${t.tipo?`<small class="tipo">${esc(t.tipo)}</small>`:""}
    <p class="credits">${t.mus?`Musica: ${mlinks(t.mus)}`:""}${t.lyr?` · Testo: ${mlinks(t.lyr)}`:""}${t.perfL.length?`<br>${t.perfL.map(p=>mlink(p.name)+(p.role?` <span class="role">${esc(p.role)}</span>`:"")).join(", ")}`:""}</p>${t.note?`<p class="tnote">${esc(t.note)}</p>`:""}</div><span class="td">${esc(t.dur)}</span></li>`).join("")}</ol>`;
   showPanel();
 }
@@ -194,7 +201,7 @@ function openMus(k){
   $("#panel-body").innerHTML=`<p class="eyebrow">Musicista ${siteLink(m.site,'scheda sul sito')} ${czLink(m.cz,'persona')}</p><h2>${esc(m.name)}</h2>${needs?`<p class="scrivi"><button type="button" data-scrivi="${esc(k)}">✍️ Scrivi la scheda</button> <span id="scrivi-msg">Copia i dati per l'admin ${isGreek(m.name)?"del sito":"del canzoniere"}.</span></p>`:""}<p class="by">${esc([m.it,m.nick&&"«"+m.nick+"»"].filter(Boolean).join(" · "))}</p>
   ${life?`<p class="notes">${esc(life)}</p>`:""}${m.instr||m.rl?`<p class="notes">${esc([m.rl,m.instr].filter(Boolean).join(" — "))}</p>`:""}
   <div class="tiles small"><div><b>${list.length}</b><span>dischi</span></div><div><b>${m.perf.length}</b><span>come interprete</span></div><div><b>${m.mus.length}</b><span>come compositore</span></div><div><b>${m.lyr.length}</b><span>come paroliere</span></div></div>
-  <h3>Nei tuoi dischi</h3>${list.map(x=>`<div class="mdisc">${discRow(x.d)}<ul>${x.items.map(([t,r])=>`<li><span class="tn">${esc(t.n)}</span> ${esc(t.title)} <span class="role">${esc(r.join(", "))}</span></li>`).join("")}</ul></div>`).join("")}`;
+  <h3>Nei tuoi dischi</h3>${list.map(x=>`<div class="mdisc">${discRow(x.d)}<ul>${x.items.map(([t,r])=>`<li><span class="tn">${esc(t.n)}</span> ${esc(t.title)} <span class="role">${esc(r.join(", "))}</span> ${tBadge(t)}</li>`).join("")}</ul></div>`).join("")}`;
   showPanel();
 }
 let lastFocus=null;
@@ -233,8 +240,8 @@ function doPrint(k){
   if(k==="dpos"||k==="shelf"){const l=ALLD.filter(d=>k==="shelf"||!dcat||d.cat===dcat).slice().sort(byPos);return printList("Dischi per posizione"+(k==="shelf"?"":cat),l.map(d=>`<b>${esc(posOf(d))}</b> ${esc(d.title)}`),2)}
   if(k==="map"){$("#print").innerHTML=`<h1>I miei scaffali</h1><p class="psub">${new Date().toLocaleDateString("it-IT")}</p>`+mapSVG();return setTimeout(()=>window.print(),50)}
   if(k==="dtit"){const l=DISCS.filter(d=>!dcat||d.cat===dcat).slice().sort(byTit);return printList("Dischi per titolo"+cat,l.map(d=>`${esc(d.title)} <b>${esc([d,...d.copies].map(posOf).join(" + "))}</b>`),2)}
-  if(k==="blet"||k==="ball"){const l=k==="ball"?SONGS:SONGS.filter(s=>(s.k[0]||"#")===letter);
-    return printList(k==="ball"?"Brani":"Brani – "+letter.toUpperCase(),l.map(s=>`${esc(s.title)} <b>${esc([...new Set(s.v.map(t=>posOf(t.d)))].join(", "))}</b>`),2)}
+  if(k==="blet"||k==="ball"){const base=bList();const l=k==="ball"?base:base.filter(s=>(s.k[0]||"#")===letter);
+    return printList((bfilt?BF[bfilt][0]:"Brani")+(k==="ball"?"":" – "+letter.toUpperCase()),l.map(s=>`${esc(s.title)} <b>${esc([...new Set(s.v.map(t=>posOf(t.d)))].join(", "))}</b>`),2)}
   if(k==="mus"){const l=MPRINT.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name),"el"));const r=ROLES.find(x=>x[0]===mrole)[1];
     return printList("Musicisti – "+r+(msite==="si"?" con scheda":msite==="no"?" senza scheda":""),l.map(m=>esc(m.name)),3)}
 }
@@ -248,7 +255,7 @@ document.addEventListener("click",e=>{
   const pe=e.target.closest("[data-print]");if(pe)return doPrint(pe.dataset.print);
   const sm=e.target.closest("[data-shelfmap]");if(sm){e.preventDefault();return openShelf(sm.dataset.shelfmap)}
   const se=e.target.closest("[data-scrivi]");if(se)return scrivi(se.dataset.scrivi);
-  const el=e.target.closest("[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-more],#panel-close");if(!el)return;
+  const el=e.target.closest("[data-bfilt],[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-more],#panel-close");if(!el)return;
   if(el.matches("a"))e.preventDefault();
   if(el.id==="panel-close")return closePanel();
   if(el.dataset.mrole!==undefined){mrole=el.dataset.mrole;mshown=150;renderMus();return}
@@ -263,6 +270,7 @@ document.addEventListener("click",e=>{
   if(el.dataset.cat!==undefined){closePanel();dcat=el.dataset.cat;dshown=200;done.dischi=0;tab("dischi");return}
   if(el.dataset.dcat!==undefined){dcat=el.dataset.dcat;dshown=200;renderDischi();return}
   if(el.dataset.letter){letter=el.dataset.letter;renderBrani();return}
+  if(el.dataset.bfilt!==undefined){bfilt=el.dataset.bfilt;renderBrani();return}
   if(el.dataset.more==="dischi"){dshown+=200;renderDischi()}
   if(el.dataset.more==="musicisti"){mshown+=200;renderMus()}
 });
