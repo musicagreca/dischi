@@ -39,7 +39,7 @@ function build(){MAYBE=null;NOART=null;
   const addM=(name,kind,t)=>{name=name.trim();if(!name)return;const k=norm(name);if(!k)return;(MUS[k]||(MUS[k]={name,perf:[],mus:[],lyr:[],roles:new Set()}))[kind].push(t);};
   for(const [code,list] of Object.entries(DATA.t)){const d=BY[code];if(!d||d.copyOf)continue;
     for(const r of list){const t={d,n:r[0],title:r[1],tr:r[2],tipo:r[3],dur:r[4],mus:r[5],lyr:r[6],perf:r[7],note:r[8]};
-      t.k=norm(t.title);t.kt=norm(t.tr);const _pm=String(t.title).match(/^(.*?)\s*\(([^()]+)\)\s*$/);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||(_pm&&(SITE_S[" "+loose(_pm[1])]||SITE_S[" "+loose(_pm[2])]))||"";if(!t.site&&t.k){t.siteMaybe=maybeSite(loose(t.title));if(t.siteMaybe)t.maybeAuth=authCheck(t,t.siteMaybe)}t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
+      t.k=norm(t.title);t.kt=norm(t.tr);const _pm=String(t.title).match(/^(.*?)\s*\(([^()]+)\)\s*$/);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||(_pm&&(SITE_S[" "+loose(_pm[1])]||SITE_S[" "+loose(_pm[2])]))||"";if(!t.site&&/\s[–—-]\s|\s\/\s/.test(t.title)){const ps=t.title.split(/\s+[–—-]\s+|\s+\/\s+/).map(x=>x.trim()).filter(Boolean);t.siteParts=ps.map(x=>({x,id:SITE_S[norm(x)]||SITE_S[" "+loose(x)]||maybeSite(loose(x))&&noArt(loose(x)).length>3&&NOART[noArt(loose(x))]||""}));if(t.siteParts.some(q=>q.id))t.site=t.siteParts.find(q=>q.id).id;else t.siteParts=null}if(!t.site&&t.k){t.siteMaybe=maybeSite(loose(t.title));if(t.siteMaybe)t.maybeAuth=authCheck(t,t.siteMaybe)}t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
       t.perfL=(t.perf||"").split(";").map(parsePerf).filter(x=>x&&x.name);
       t.perfL.forEach(p=>p.name.split(/\s\/\s/).forEach(nm=>{nm=nm.trim();if(!nm||!norm(nm))return;addM(nm,"perf",t);if(p.role)MUS[norm(nm)].roles.add(p.role)}));
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
@@ -113,7 +113,7 @@ function renderDischi(){
 let letter="";
 let bfilt="";
 const maybeLink=(id,au)=>`<a class="badge maybe${au==="ok"?" good":au==="diff"?" weak":""}" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Somiglia a: ${esc((LK.st||{})[id]||"")}">forse sul sito ↗</a><small class="maybe-why">somiglia a: ${esc((LK.st||{})[id]||"?")}${au==="ok"?" · <b>stesso autore</b>":au==="diff"?" · autore diverso ("+esc((LK.sa||{})[id]||"")+")":""}</small>`;
-const tBadge=t=>t.site?siteLink(t.site):t.siteMaybe?maybeLink(t.siteMaybe,t.maybeAuth):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
+const tBadge=t=>t.siteParts?t.siteParts.map(q=>q.id?siteLink(q.id,"sul sito: "+esc(q.x)):'<span class="badge off">non sul sito: '+esc(q.x)+'</span>').join(" "):t.site?siteLink(t.site):t.siteMaybe?maybeLink(t.siteMaybe,t.maybeAuth):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
 const sSite=s=>s.v.some(t=>t.site),sMaybe=s=>!sSite(s)&&s.v.some(t=>t.siteMaybe),sCz=s=>s.v.some(t=>t.cz),sGr=s=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(s.title);
 const BF={"":["Tutti",s=>true],si:["Sul sito",sSite],maybe:["Forse sul sito",sMaybe],no:["Greci non ancora sul sito",s=>sGr(s)&&!sSite(s)&&!sMaybe(s)],cz:["Nel canzoniere",sCz],czno:["Altri non nel canzoniere",s=>!sGr(s)&&!sCz(s)]};
 const bList=()=>SONGS.filter(BF[bfilt][1]);
