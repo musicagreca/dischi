@@ -328,7 +328,7 @@ const getJ=(u,o)=>fetch(u,o).then(r=>{if(!r.ok)throw new Error(r.status);return 
 function linksFrom(site,canz){
   const ss={},sp={},cs={},cp={},st={},sa={};const put=(m,k,v)=>{const l=loose(k);k=norm(k);if(k&&!m[k])m[k]=v;if(l&&!m[" "+l])m[" "+l]=v};
   const clean=x=>String(x||"").replace(/\(.*?\)/g,"");
-  if(site){(site.songs||[]).forEach(x=>{st[x.id]=x.tgr+(x.alias?" ("+x.alias+")":"");sa[x.id]=[x.at,x.am].filter(Boolean).join(", ");put(ss,x.tgr,x.id);String(x.alias||"").split(/\s*[\/;|]\s*/).forEach(a=>put(ss,a,x.id))});
+  if(site){(site.songs||[]).forEach(x=>{st[x.id]=x.tgr+(x.alias?" ("+x.alias+")":"");sa[x.id]=[x.at,x.am].filter(Boolean).join(", ");put(ss,x.tgr,x.id);const _al=String(x.alias||"");put(ss,_al,x.id);_al.split(/\s*[\/;|,()]\s*/).forEach(a=>put(ss,a,x.id))});
     (site.persons||[]).forEach(p=>{put(sp,clean(p.name),p.id);put(sp,p.name,p.id);if(!sp[canonP(clean(p.name))])sp[canonP(clean(p.name))]=p.id;String(p.alias||p.aliases||"").split(/[,;]/).forEach(a=>put(sp,a,p.id))})}
   if(canz){(canz.canzoni||[]).forEach(x=>{if(x.id)put(cs,x.titolo,x.id)});
     (canz.persone||[]).forEach(p=>{put(cp,p.nome,p.id);String(p.alias||"").split(",").forEach(a=>put(cp,a,p.id))})}
