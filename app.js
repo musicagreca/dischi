@@ -296,6 +296,18 @@ $("#panel").addEventListener("click",e=>{if(e.target.id==="panel")closePanel()})
 let tm;$("#q").addEventListener("input",e=>{clearTimeout(tm);tm=setTimeout(()=>search(e.target.value),150)});
 $("#mq").addEventListener("input",e=>{mq=e.target.value;mshown=150;renderMus()});
 
+
+/* ---------- area riservata (password) ---------- */
+const LOCK_HASH="f0fc23ad44c1f358b4811eb961f2ab608d23ab6f68dae8222d9681f43ac03b8a";
+async function lockHash(t){const b=await crypto.subtle.digest("SHA-256",new TextEncoder().encode("imieidischi:"+t));return[...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function lockShow(on){$("#tools").hidden=!on;$("#lock").hidden=on;try{on?sessionStorage.setItem("aperto","1"):sessionStorage.removeItem("aperto")}catch(e){}}
+try{if(sessionStorage.getItem("aperto")==="1")lockShow(true)}catch(e){}
+$("#lock-open").addEventListener("click",()=>{$("#lock-form").hidden=false;$("#lock-pw").focus()});
+$("#lock-form").addEventListener("submit",async e=>{e.preventDefault();const pw=$("#lock-pw");
+  if(await lockHash(pw.value)===LOCK_HASH){pw.value="";$("#lock-msg").textContent="";$("#lock-form").hidden=true;lockShow(true)}
+  else{$("#lock-msg").textContent="Password sbagliata.";pw.select()}});
+$("#lock-close").addEventListener("click",()=>lockShow(false));
+
 /* ---------- carica Excel ---------- */
 const DB="discoteca";function idb(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);r.onupgradeneeded=()=>r.result.createObjectStore("d");r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function saveData(d){idbPut("data",d)}

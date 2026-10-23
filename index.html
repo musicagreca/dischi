@@ -124,7 +124,13 @@ a{color:var(--cobalt)}
 .mdisc .row{border-bottom:1px solid var(--line)}
 .mdisc ul{list-style:none;margin:0;padding:6px 12px 8px;font-size:.85rem}
 .mdisc li{padding:2px 0}
-.tools{margin-top:40px;padding:16px;background:var(--card);border:1px dashed var(--line);border-radius:10px}
+.lock{margin-top:40px;text-align:center}
+.lock button{font:inherit;background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;color:inherit}
+.lock form{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
+.lock input{font:inherit;padding:6px 8px;border:1px solid var(--line);border-radius:8px;max-width:200px}
+.lock p{width:100%;margin:4px 0 0;min-height:1.2em}
+#lock-close{margin-top:10px;font:inherit;background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;color:inherit}
+.tools{margin-top:16px;padding:16px;background:var(--card);border:1px dashed var(--line);border-radius:10px}
 .tools label{font-weight:600;display:block;margin-bottom:6px}
 #xlmsg{font-size:.85rem;color:var(--muted)}
 .cov{display:block;flex:0 0 auto;object-fit:cover;background:var(--line);border-radius:3px}
@@ -191,7 +197,8 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var
   <div class="view" id="v-musicisti" hidden><label class="hint" for="mq">Filtra i musicisti</label><input id="mq" type="search" placeholder="Nome…" autocomplete="off"><div id="mus-controls"></div><div id="out-musicisti-list" class="list"></div></div>
   <div class="view" id="v-scaffali" hidden><div id="out-scaffali"></div></div>
   <div class="view" id="v-numeri" hidden><div id="out-numeri"></div></div>
-  <div class="tools"><label for="xl">Aggiorna dall'Excel</label><input id="xl" type="file" accept=".xlsx"><p id="xlmsg">Scegli il file del catalogo (catalogo_dischi_….xlsx): l'app si aggiorna con i dati nuovi.</p></div>
+  <div class="lock" id="lock"><button type="button" id="lock-open">🔒 Area riservata</button><form id="lock-form" hidden><label for="lock-pw">Password</label><input id="lock-pw" type="password" autocomplete="current-password"><button type="submit">Entra</button><p id="lock-msg"></p></form></div>
+  <div class="tools" id="tools" hidden><label for="xl">Aggiorna dall'Excel</label><input id="xl" type="file" accept=".xlsx"><p id="xlmsg">Scegli il file del catalogo (catalogo_dischi_….xlsx): l'app si aggiorna con i dati nuovi.</p><button type="button" id="lock-close">🔒 Chiudi l'area riservata</button></div>
 </div></main>
 <div id="panel" hidden><div class="sheet"><button id="panel-close" aria-label="Chiudi">Chiudi ✕</button><div id="panel-body"></div></div></div>
 
