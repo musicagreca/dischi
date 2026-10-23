@@ -124,6 +124,31 @@ a{color:var(--cobalt)}
 .mdisc .row{border-bottom:1px solid var(--line)}
 .mdisc ul{list-style:none;margin:0;padding:6px 12px 8px;font-size:.85rem}
 .mdisc li{padding:2px 0}
+.brand h1[data-tab]{cursor:pointer}
+/* pagina di benvenuto */
+.hero{text-align:center;padding:18px 0 6px}
+.hero img{width:92px;height:92px;border-radius:22px;box-shadow:0 6px 22px rgba(20,30,70,.18)}
+.hero h2{font-size:2.3rem;margin:14px 0 0}
+.hero h2 span{color:var(--cobalt)}
+.hero .gr{font-family:var(--display);font-size:1.15rem;color:var(--ochre);margin:2px 0 6px}
+.hero .tot{color:var(--muted);font-size:.85rem;margin:0}
+.home-q{margin:18px auto 4px;max-width:560px}
+.cats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px}
+.cat{display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;font:inherit;color:inherit;background:var(--card);border:1px solid var(--line);border-left:6px solid var(--c,var(--cobalt));border-radius:10px;padding:12px 12px 10px;cursor:pointer}
+.cat:hover{background:var(--cobalt-soft)}
+.cat b{font-weight:600;font-size:.95rem;line-height:1.2}
+.cat span{color:var(--muted);font-size:.8rem;font-variant-numeric:tabular-nums}
+.cat.go{border-left-color:var(--ochre)}
+.cat.go i{font-style:normal;font-size:1.3rem;line-height:1}
+.random{display:flex;gap:14px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px}
+.random .pick{display:flex;gap:14px;align-items:center;flex:1;min-width:0;border:0;background:none;padding:0;font:inherit;color:inherit;text-align:left;cursor:pointer}
+.random .cov{width:84px;height:84px;flex:0 0 84px;border-radius:6px;object-fit:cover}
+.random .nocov{display:block;background:var(--cobalt-soft)}
+.random .t{display:flex;flex-direction:column;min-width:0}
+.random .t b{font-family:var(--display);font-weight:400;font-size:1.2rem;line-height:1.2}
+.random .t small{color:var(--muted)}
+.random .again{flex:0 0 auto;font:inherit;font-size:.85rem;border:1px solid var(--line);background:none;color:var(--ink);border-radius:99px;padding:6px 12px;cursor:pointer}
+@media (max-width:520px){.random{flex-direction:column;align-items:stretch}.random .again{align-self:flex-end}}
 .lock{margin-top:40px;text-align:center}
 .lock button{font:inherit;background:none;border:1px solid var(--line);border-radius:8px;padding:6px 12px;cursor:pointer;color:inherit}
 .lock form{margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-items:center}
@@ -185,13 +210,14 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var
 </head>
 <body>
 <header class="top"><div class="wrap">
-  <div class="brand"><h1>I miei <span>dischi</span></h1><span id="stamp"></span></div>
+  <div class="brand"><h1 data-tab="home" title="Torna all'inizio">I miei <span>dischi</span></h1><span id="stamp"></span></div>
   <nav class="tabs" role="tablist">
-    <button data-tab="cerca" role="tab">Cerca</button><button data-tab="dischi" role="tab">Dischi</button><button data-tab="brani" role="tab">Brani</button><button data-tab="musicisti" role="tab">Musicisti</button><button data-tab="scaffali" role="tab">Scaffali</button><button data-tab="numeri" role="tab">Numeri</button>
+    <button data-tab="home" role="tab">Inizio</button><button data-tab="cerca" role="tab">Cerca</button><button data-tab="dischi" role="tab">Dischi</button><button data-tab="brani" role="tab">Brani</button><button data-tab="musicisti" role="tab">Musicisti</button><button data-tab="scaffali" role="tab">Scaffali</button><button data-tab="numeri" role="tab">Numeri</button>
   </nav>
 </div></header>
 <main><div class="wrap">
-  <div class="view" id="v-cerca"><div class="searchbox"><label class="hint" for="q">Cerca nella collezione</label><input id="q" type="search" placeholder="Titolo, musicista, etichetta, codice…" autocomplete="off"></div><div id="out-cerca"></div></div>
+  <div class="view" id="v-home"><div id="out-home"></div></div>
+  <div class="view" id="v-cerca" hidden><div class="searchbox"><label class="hint" for="q">Cerca nella collezione</label><input id="q" type="search" placeholder="Titolo, musicista, etichetta, codice…" autocomplete="off"></div><div id="out-cerca"></div></div>
   <div class="view" id="v-dischi" hidden><div id="out-dischi"></div></div>
   <div class="view" id="v-brani" hidden><div id="out-brani"></div></div>
   <div class="view" id="v-musicisti" hidden><label class="hint" for="mq">Filtra i musicisti</label><input id="mq" type="search" placeholder="Nome…" autocomplete="off"><div id="mus-controls"></div><div id="out-musicisti-list" class="list"></div></div>

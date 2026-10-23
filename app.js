@@ -263,8 +263,29 @@ function doPrint(k){
     return printList("Musicisti – "+r+(msite==="si"?" con scheda":msite==="no"?" senza scheda":""),l.map(m=>esc(m.name)),3)}
 }
 
+
+/* ---------- inizio ---------- */
+const GREEK_CATS=["Rebetiko","Rebetiko non originale","Asia Minore","Asia Minore non originale","Dimotikà","Kritikà","Laïká","Éntekhno","Rock greco","Pop greco","Varie (edizione greca)"];
+const OTHER_CATS=["Italiana","Canzoni dal mondo","Classica","Jazz, blues, gospel","Rock","Pop","DVD"];
+let rnd="";
+function renderHome(){
+  const n={};DISCS.forEach(d=>{n[d.cat]=(n[d.cat]||0)+1});
+  const known=new Set([...GREEK_CATS,...OTHER_CATS]);
+  const others=[...OTHER_CATS,...Object.keys(n).filter(c=>!known.has(c)&&c)];
+  const tile=c=>n[c]?`<button class="cat" data-cat="${esc(c)}" style="--c:${CATCOL[c]||"var(--cobalt)"}"><b>${esc(c)}</b><span>${n[c]} dischi</span></button>`:"";
+  if(DISCS.length&&!BY[rnd]){const g=DISCS.filter(d=>GREEK_CATS.includes(d.cat)&&covCode(d));const pool=g.length?g:DISCS;rnd=pool[Math.floor(Math.random()*pool.length)].code}
+  const r=BY[rnd];
+  $("#out-home").innerHTML=`<div class="hero"><img src="icona-512.png" alt=""><h2>I miei <span>dischi</span></h2><p class="gr">η δισκοθήκη μου</p><p class="tot">${DISCS.length?`${DISCS.length.toLocaleString("it")} dischi · ${TR.length.toLocaleString("it")} brani · ${MLIST.length.toLocaleString("it")} musicisti`:"Sto caricando il catalogo…"}</p></div>
+  <div class="home-q"><label class="hint" for="hq">Cerca un disco, una canzone, un musicista</label><input id="hq" type="search" placeholder="Scrivi qui…" autocomplete="off"></div>
+  <h3>Musica greca</h3><div class="cats">${GREEK_CATS.map(tile).join("")}</div>
+  <h3>Altra musica</h3><div class="cats">${others.map(tile).join("")}</div>
+  <h3>Sfoglia</h3><div class="cats"><button class="cat go" data-tab="dischi"><i>💿</i><b>Tutti i dischi</b></button><button class="cat go" data-tab="brani"><i>🎵</i><b>Canzoni</b></button><button class="cat go" data-tab="musicisti"><i>🎻</i><b>Musicisti</b></button><button class="cat go" data-tab="scaffali"><i>🗄️</i><b>Scaffali</b></button><button class="cat go" data-tab="numeri"><i>📊</i><b>Numeri</b></button></div>
+  ${r?`<h3>Un disco a caso</h3><div class="random"><button class="pick" data-disc="${esc(r.code)}">${covImg(r,"rc")}<span class="t"><b>${esc(r.title)}</b><small>${esc([r.artist,r.cat].filter(Boolean).join(" · "))}</small><small>Scaffale ${esc(r.shelf||"—")}</small></span></button><button class="again" type="button" id="again">🎲 Un altro</button></div>`:""}`;
+  const hq=$("#hq");hq.addEventListener("input",()=>{if(!hq.value.trim())return;$("#q").value=hq.value;done.cerca=0;tab("cerca");const q=$("#q");q.focus();q.setSelectionRange(q.value.length,q.value.length)});
+  const ag=$("#again");if(ag)ag.addEventListener("click",()=>{rnd="";renderHome()});
+}
 /* ---------- tabs ---------- */
-const views={cerca:()=>search($("#q").value),dischi:renderDischi,brani:renderBrani,musicisti:renderMus,scaffali:renderShelves,numeri:renderNum};
+const views={home:renderHome,cerca:()=>search($("#q").value),dischi:renderDischi,brani:renderBrani,musicisti:renderMus,scaffali:renderShelves,numeri:renderNum};
 const done={};
 function tab(name){cur=name;document.querySelectorAll("[data-tab]").forEach(b=>b.setAttribute("aria-selected",b.dataset.tab===name));document.querySelectorAll(".view").forEach(v=>v.hidden=v.id!=="v-"+name);if(!done[name]||name==="cerca"){views[name]();done[name]=1}store.set("disco-tab",name);window.scrollTo(0,0)}
 
@@ -347,16 +368,16 @@ function linksFrom(site,canz){
   return {ss,sp,cs,cp,st,sa};
 }
 (async()=>{
-  const t0=store.get("disco-tab");cur=views[t0]?t0:"cerca";
+  cur="home";
   const [saved,lk,ci]=await Promise.all([idbGet("data"),idbGet("links"),idbGet("covidx")]);
   if(lk)LK=lk;if(ci)CIDX=ci;
   if(saved&&saved.d&&saved.d.length){DATA=saved}
   build();tab(cur);
-  if(!DISCS.length)$("#out-cerca").innerHTML='<p class="hint">Sto caricando il catalogo… la prima volta serve internet.</p>';
+  if(!DISCS.length)$("#out-home").querySelector(".tot").textContent='Sto caricando il catalogo… la prima volta serve internet.';
   getJ("copertine/idx.json").then(j=>{CIDX=j;idbPut("covidx",j);rerender()}).catch(()=>{});
   setTimeout(()=>{const c=navigator.connection;if(c&&(c.saveData||/cellular/.test(c.type||"")))return;const ids=[...new Set(Object.values(CIDX))];(async()=>{for(const i of ids){await loadChunk(i)}})()},15000);
   try{const j=await getJ("dischi.json",{cache:"no-cache"});if(j&&j.d&&(!DATA.ts||(j.ts||0)>DATA.ts)){DATA=j;idbPut("data",j);rerender()}}
-  catch(e){if(!DISCS.length)$("#out-cerca").innerHTML='<p class="hint">Non riesco a caricare il catalogo: controlla la connessione e riapri.</p>'}
+  catch(e){if(!DISCS.length)$("#out-home").innerHTML='<p class="hint">Non riesco a caricare il catalogo: controlla la connessione e riapri.</p>'}
   const [site,canz]=await Promise.all([getJ(SITE+"dati.json",{cache:"no-cache"}).catch(()=>null),getJ(CANZ+"dati.json",{cache:"no-cache"}).catch(()=>null)]);
   if(site||canz){const n=linksFrom(site,canz);if(!site){n.ss=LK.ss;n.sp=LK.sp;n.st=LK.st;n.sa=LK.sa}if(!canz){n.cs=LK.cs;n.cp=LK.cp}
     if(JSON.stringify(n)!==JSON.stringify(LK)){LK=n;idbPut("links",n);rerender()}}
