@@ -74,10 +74,10 @@ function search(q){
   const out=$("#out-cerca"); const k=norm(q);
   if(k.length<2){out.innerHTML=summary();return;}
   const words=k.split(" ");const has=s=>words.every(w=>s.includes(w));
-  const ds=DISCS.filter(d=>has(d.k));
-  const gs=SONGS.filter(s=>has(s.k)||s.v.some(t=>t.kt&&has(t.kt)));
+  const ds0=DISCS.filter(d=>has(d.k)),ds=ds0.filter(supOk);
+  const gs=SONGS.filter(s=>has(s.k)||s.v.some(t=>t.kt&&has(t.kt))).map(s=>dsup?{...s,v:s.v.filter(t=>supOk(t.d))}:s).filter(s=>s.v.length);
   const ms=MLIST.filter(m=>has(m.k)||(m.it&&has(norm(m.it))));
-  let h="";
+  let h=supChips(DISCS);
   h+=`<section><h3>Brani <span class="count">${gs.length}</span></h3>${gs.slice(0,40).map(songBlock).join("")||'<p class="empty">Nessun brano con queste parole.</p>'}${gs.length>40?`<p class="hint">Mostro i primi 40: aggiungi una parola per restringere.</p>`:""}</section>`;
   h+=`<section><h3>Dischi <span class="count">${ds.length}</span></h3>${ds.slice(0,60).map(discRow).join("")||'<p class="empty">Nessun disco.</p>'}</section>`;
   h+=`<section><h3>Musicisti <span class="count">${ms.length}</span></h3>${ms.slice(0,30).map(musRow).join("")||'<p class="empty">Nessun musicista.</p>'}</section>`;
@@ -98,14 +98,24 @@ function summary(){
   <h3>Categorie</h3><div class="chips">${cats.map(([c,n])=>`<button class="chip" data-cat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div></div>`;
 }
 const count=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x)||"—";m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
+/* ---------- filtro supporto ---------- */
+let dsup=store.get("disco-sup")||"";
+const supOf=d=>String(d.sup||"").trim()||"—";
+const SUPORD=[["libro",8],["dvd",7],["cassett",6],["78",5],["45",4],["33",3],["lp",2],["vinil",2],["cd",1]];
+const supRank=v=>{const l=v.toLowerCase();const x=SUPORD.find(([k])=>l.includes(k));return x?x[1]:99};
+const supOk=d=>!dsup||supOf(d)===dsup;
+function supChips(base){const m=count(base,supOf).sort((a,b)=>supRank(a[0])-supRank(b[0])||a[0].localeCompare(b[0],"it"));
+  if(dsup&&!m.some(([v])=>v===dsup))m.push([dsup,0]);
+  if(m.length<2&&!dsup)return "";
+  return `<div class="chips sup"><span class="lbl">Supporto</span><button class="chip ${dsup?"":"on"}" data-dsup="">Tutti</button>${m.map(([v,n])=>`<button class="chip ${v===dsup?"on":""}" data-dsup="${esc(v)}">${esc(v)} <span>${n}</span></button>`).join("")}</div>`}
 
 /* ---------- dischi ---------- */
 let dcat="",dshown=200,dgrid=store.get("disco-grid")==="1";
 function renderDischi(){
-  const cats=count(DISCS,d=>d.cat);
+  const cats=count(DISCS.filter(supOk),d=>d.cat);
   const pre=dcat?(DISCS.filter(d=>d.cat===dcat).map(d=>d.code.match(/^[A-Z]+/)?.[0]).reduce((m,p)=>(m[p]=(m[p]||0)+1,m),{})):{};const main=Object.entries(pre).sort((a,b)=>b[1]-a[1])[0]?.[0];
-  const list=DISCS.filter(d=>!dcat||d.cat===dcat).slice().sort((a,b)=>(dcat?((a.code.match(/^[A-Z]+/)?.[0]===main?0:1)-(b.code.match(/^[A-Z]+/)?.[0]===main?0:1)):0)||a.code.localeCompare(b.code,"it",{numeric:true}));
-  $("#out-dischi").innerHTML=`<div class="chips"><button class="chip ${dcat?"":"on"}" data-dcat="">Tutti <span>${DISCS.length}</span></button>${cats.map(([c,n])=>`<button class="chip ${c===dcat?"on":""}" data-dcat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div>
+  const list=DISCS.filter(d=>(!dcat||d.cat===dcat)&&supOk(d)).slice().sort((a,b)=>(dcat?((a.code.match(/^[A-Z]+/)?.[0]===main?0:1)-(b.code.match(/^[A-Z]+/)?.[0]===main?0:1)):0)||a.code.localeCompare(b.code,"it",{numeric:true}));
+  $("#out-dischi").innerHTML=`<div class="chips"><span class="lbl">Categoria</span><button class="chip ${dcat?"":"on"}" data-dcat="">Tutti <span>${DISCS.filter(supOk).length}</span></button>${cats.map(([c,n])=>`<button class="chip ${c===dcat?"on":""}" data-dcat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div>${supChips(DISCS.filter(d=>!dcat||d.cat===dcat))}<p class="hint">${list.length.toLocaleString("it")} dischi${dcat||dsup?" · "+[dcat,dsup].filter(Boolean).map(esc).join(" · "):""}</p>
   ${pbar([["dpos","Stampa per posizione"],["dtit","Stampa per titolo"]])}<div class="seg"><button data-grid="0" class="${dgrid?"":"on"}">Elenco</button><button data-grid="1" class="${dgrid?"on":""}">Copertine</button></div>
   ${dgrid?`<div class="grid">${list.slice(0,dshown).map(d=>`<button class="tile" data-disc="${esc(d.code)}">${covImg(d,"gr")}<span class="code">${esc(d.code)}</span><small>${esc(d.title)}</small></button>`).join("")}</div>`:`<div class="list">${list.slice(0,dshown).map(discRow).join("")}</div>`}${more("dischi",Math.min(dshown,list.length),list.length)}`;
 }
@@ -253,10 +263,10 @@ function printList(title,lines,cols){
   setTimeout(()=>window.print(),50);
 }
 function doPrint(k){
-  const cat=dcat?" – "+dcat:"";
-  if(k==="dpos"||k==="shelf"){const l=ALLD.filter(d=>k==="shelf"||!dcat||d.cat===dcat).slice().sort(byPos);return printList("Dischi per posizione"+(k==="shelf"?"":cat),l.map(d=>`<b>${esc(posOf(d))}</b> ${esc(d.title)}`),2)}
+  const cat=[dcat,dsup].filter(Boolean).map(x=>" – "+x).join("");
+  if(k==="dpos"||k==="shelf"){const l=ALLD.filter(d=>k==="shelf"||((!dcat||d.cat===dcat)&&supOk(d))).slice().sort(byPos);return printList("Dischi per posizione"+(k==="shelf"?"":cat),l.map(d=>`<b>${esc(posOf(d))}</b> ${esc(d.title)}`),2)}
   if(k==="map"){$("#print").innerHTML=`<h1>I miei scaffali</h1><p class="psub">${new Date().toLocaleDateString("it-IT")}</p>`+mapSVG();return setTimeout(()=>window.print(),50)}
-  if(k==="dtit"){const l=DISCS.filter(d=>!dcat||d.cat===dcat).slice().sort(byTit);return printList("Dischi per titolo"+cat,l.map(d=>`${esc(d.title)} <b>${esc([d,...d.copies].map(posOf).join(" + "))}</b>`),2)}
+  if(k==="dtit"){const l=DISCS.filter(d=>(!dcat||d.cat===dcat)&&supOk(d)).slice().sort(byTit);return printList("Dischi per titolo"+cat,l.map(d=>`${esc(d.title)} <b>${esc([d,...d.copies].map(posOf).join(" + "))}</b>`),2)}
   if(k==="blet"||k==="ball"){const base=bList();const l=k==="ball"?base:base.filter(s=>(s.k[0]||"#")===letter);
     return printList((bfilt?BF[bfilt][0]:"Brani")+(k==="ball"?"":" – "+letter.toUpperCase()),l.map(s=>`${esc(s.title)} <b>${esc([...new Set(s.v.map(t=>posOf(t.d)))].join(", "))}</b>`),2)}
   if(k==="mus"){const l=MPRINT.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name),"el"));const r=ROLES.find(x=>x[0]===mrole)[1];
@@ -293,7 +303,7 @@ document.addEventListener("click",e=>{
   const pe=e.target.closest("[data-print]");if(pe)return doPrint(pe.dataset.print);
   const sm=e.target.closest("[data-shelfmap]");if(sm){e.preventDefault();return openShelf(sm.dataset.shelfmap)}
   const se=e.target.closest("[data-scrivi]");if(se)return scrivi(se.dataset.scrivi);
-  const el=e.target.closest("[data-bfilt],[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-more],#panel-close");if(!el)return;
+  const el=e.target.closest("[data-dsup],[data-bfilt],[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-more],#panel-close");if(!el)return;
   if(el.matches("a"))e.preventDefault();
   if(el.id==="panel-close")return closePanel();
   if(el.dataset.mrole!==undefined){mrole=el.dataset.mrole;mshown=150;renderMus();return}
@@ -307,6 +317,7 @@ document.addEventListener("click",e=>{
   if(el.dataset.q!==undefined){closePanel();$("#q").value=el.dataset.q;done.cerca=0;tab("cerca");return}
   if(el.dataset.cat!==undefined){closePanel();dcat=el.dataset.cat;dshown=200;done.dischi=0;tab("dischi");return}
   if(el.dataset.dcat!==undefined){dcat=el.dataset.dcat;dshown=200;renderDischi();return}
+  if(el.dataset.dsup!==undefined){dsup=el.dataset.dsup;store.set("disco-sup",dsup);dshown=200;done.dischi=0;if(cur==="cerca")search($("#q").value);else renderDischi();return}
   if(el.dataset.letter){letter=el.dataset.letter;renderBrani();return}
   if(el.dataset.bfilt!==undefined){bfilt=el.dataset.bfilt;renderBrani();return}
   if(el.dataset.more==="dischi"){dshown+=200;renderDischi()}
