@@ -6,6 +6,14 @@ let DATA={d:[],t:{},m:[],date:"",ts:0},LK={ss:{},sp:{},cs:{},cp:{}}, DISCS=[], B
 const SITE='https://musicagreca.com/';const CANZ='https://musicagreca.github.io/musica-italiana/';let CS={},CP={};
 const czLink=(id,kind)=>id?`<a class="badge cz" href="${CANZ}?${kind||'song'}=${encodeURIComponent(id)}" target="_blank" rel="noopener">canzoniere ↗</a>`:'';
 const siteLink=(id,label)=>id?`<a class="badge" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener">${label||'sul sito'} ↗</a>`:'';
+/* chiave «a orecchio»: greco e lettere latine diventano la stessa cosa (ι/η/υ/ει/οι = i, ω = o, μπ = b, ντ = d…) */
+const GRD=[["ου","u"],["αι","e"],["ει","i"],["οι","i"],["υι","i"],["αυ","av"],["ευ","ev"],["μπ","b"],["ντ","d"],["γκ","g"],["γγ","g"],["γχ","gh"]];
+const GRL={"α":"a","β":"v","γ":"g","δ":"d","ε":"e","ζ":"z","η":"i","θ":"t","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"x","ο":"o","π":"p","ρ":"r","σ":"s","τ":"t","υ":"i","φ":"f","χ":"h","ψ":"ps","ω":"o"};
+const phon=x=>{let s=norm(x);for(const [a,b] of GRD)s=s.split(a).join(b);s=s.replace(/[α-ω]/g,c=>GRL[c]||c);
+  return s.replace(/th/g,"t").replace(/ph/g,"f").replace(/dh/g,"d").replace(/kh|ch/g,"h").replace(/gh/g,"g").replace(/n[td]/g,"d").replace(/[td][zj]/g,"z").replace(/ks|x/g,"x").replace(/[cq]/g,"k").replace(/[bf]/g,"v").replace(/y|j/g,"i")
+   .replace(/mp|mv/g,"v").replace(/ng[kg]?|g[kg]/g,"g").replace(/g(?=e|i[aeou])/g,"").replace(/ie/g,"e")
+   .replace(/ou/g,"u").replace(/ai/g,"e").replace(/[eo]i/g,"i").replace(/ee/g,"i")
+   .replace(/h(?=[^aeiou]|$)/g,"").replace(/([a-z])\1+/g,"$1").replace(/\s+/g," ").trim()};
 const loose=s=>norm(s).replace(/νδ/g,"ντ").replace(/γγ/g,"γκ").replace(/(^|\s)(και|κι|κ)(?=\s|$)/g,"$1κ").replace(/(\S+?)σ(?=\s|$)/g,"$1").replace(/ει|οι|υ|η/g,"ι").replace(/ω/g,"ο").replace(/\s+/g," ").trim();
 const FN={"γιωργησ":"γιωργοσ","γεωργιοσ":"γιωργοσ","θεοδωροσ":"θοδωροσ","ιωαννησ":"γιαννησ","νικολαοσ":"νικοσ","αναστασιοσ":"τασοσ","βασιλειοσ":"βασιλησ","εμμανουηλ":"μανωλησ","κωνσταντινοσ":"κωστασ","δημητριοσ":"δημητρησ","μιχαηλ":"μιχαλησ","σπυριδων":"σπυροσ","ελευθεριοσ":"λευτερησ","στυλιανοσ":"στελιοσ","αθανασιοσ":"θανασησ","γρηγοριοσ":"γρηγορησ","αντωνιοσ":"αντωνησ","χαραλαμποσ":"μπαμπησ","λαμπησ":"μπαμπησ"};
 const canonP=k=>{const w=norm(k).split(" ");if(w.length>1&&FN[w[0]])w[0]=FN[w[0]];return "~"+w.join(" ")};
@@ -31,7 +39,7 @@ function maybeSite(l){
 }
 function build(){MAYBE=null;NOART=null;
   DISCS=DATA.d.map(r=>({code:r[0],shelf:r[1],pos:r[2],box:r[3],no:r[4],cat:r[5],title:r[6],artist:r[7],genre:r[8],sub:r[9],year:r[10],label:r[11],catno:r[12],country:r[13],n:r[14],dur:r[15],sup:r[16],notes:r[17]}));
-  BY={};DISCS.forEach(d=>{BY[d.code]=d;d.tracks=[];d.copies=[];d.k=norm([d.code,d.title,d.artist,d.label,d.catno,d.sub].join(" "))});
+  BY={};DISCS.forEach(d=>{BY[d.code]=d;d.tracks=[];d.copies=[];d.k=norm([d.code,d.title,d.artist,d.label,d.catno,d.sub].join(" "));d.pk=phon([d.title,d.artist,d.label,d.sub].join(" "))});
   DISCS.forEach(d=>{const b=/B$/i.test(d.code)&&BY[d.code.slice(0,-1)];if(b&&b!==d){d.copyOf=b;b.copies.push(d)}});
   ALLD=DISCS;DISCS=DISCS.filter(d=>!d.copyOf);
   CS=LK.cs||{};CP=LK.cp||{};SITE_S=LK.ss||{};SITE_P=LK.sp||{};
@@ -39,13 +47,13 @@ function build(){MAYBE=null;NOART=null;
   const addM=(name,kind,t)=>{name=name.trim();if(!name)return;const k=norm(name);if(!k)return;(MUS[k]||(MUS[k]={name,perf:[],mus:[],lyr:[],roles:new Set()}))[kind].push(t);};
   for(const [code,list] of Object.entries(DATA.t)){const d=BY[code];if(!d||d.copyOf)continue;
     for(const r of list){const t={d,n:r[0],title:r[1],tr:r[2],tipo:r[3],dur:r[4],mus:r[5],lyr:r[6],perf:r[7],note:r[8]};
-      t.k=norm(t.title);t.kt=norm(t.tr);const _pm=String(t.title).match(/^(.*?)\s*\(([^()]+)\)\s*$/);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||(_pm&&(SITE_S[" "+loose(_pm[1])]||SITE_S[" "+loose(_pm[2])]))||"";if(!t.site&&/\s[–—-]\s|\s\/\s/.test(t.title)){const ps=t.title.split(/\s+[–—-]\s+|\s+\/\s+/).map(x=>x.trim()).filter(Boolean);t.siteParts=ps.map(x=>({x,id:SITE_S[norm(x)]||SITE_S[" "+loose(x)]||maybeSite(loose(x))&&noArt(loose(x)).length>3&&NOART[noArt(loose(x))]||""}));if(t.siteParts.some(q=>q.id))t.site=t.siteParts.find(q=>q.id).id;else t.siteParts=null}if(!t.site&&t.k){t.siteMaybe=maybeSite(loose(t.title));if(t.siteMaybe)t.maybeAuth=authCheck(t,t.siteMaybe)}t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
+      t.k=norm(t.title);t.kt=norm(t.tr);t.pk=phon(t.title+" "+(t.tr||""));const _pm=String(t.title).match(/^(.*?)\s*\(([^()]+)\)\s*$/);t.site=SITE_S[t.k]||SITE_S[" "+loose(t.title)]||(_pm&&(SITE_S[" "+loose(_pm[1])]||SITE_S[" "+loose(_pm[2])]))||"";if(!t.site&&/\s[–—-]\s|\s\/\s/.test(t.title)){const ps=t.title.split(/\s+[–—-]\s+|\s+\/\s+/).map(x=>x.trim()).filter(Boolean);t.siteParts=ps.map(x=>({x,id:SITE_S[norm(x)]||SITE_S[" "+loose(x)]||maybeSite(loose(x))&&noArt(loose(x)).length>3&&NOART[noArt(loose(x))]||""}));if(t.siteParts.some(q=>q.id))t.site=t.siteParts.find(q=>q.id).id;else t.siteParts=null}if(!t.site&&t.k){t.siteMaybe=maybeSite(loose(t.title));if(t.siteMaybe)t.maybeAuth=authCheck(t,t.siteMaybe)}t.cz=CS[t.k]||CS[" "+loose(t.title)]||"";d.tracks.push(t);TR.push(t);
       t.perfL=(t.perf||"").split(";").map(parsePerf).filter(x=>x&&x.name);
       t.perfL.forEach(p=>p.name.split(/\s\/\s/).forEach(nm=>{nm=nm.trim();if(!nm||!norm(nm))return;addM(nm,"perf",t);if(p.role)MUS[norm(nm)].roles.add(p.role)}));
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
   DISCS.forEach(d=>d.tracks.sort((a,b)=>(+a.n||0)-(+b.n||0)));
   (DATA.m||[]).forEach(r=>{const k=norm(r[0]);const m=MUS[k]||(MUS[k]={name:r[0],perf:[],mus:[],lyr:[],roles:new Set()});m.it=r[1];m.born=r[2];m.died=r[3];m.rl=r[4];m.instr=r[5];m.nick=r[6];m.siteFlag=r[7]});
-  MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||SITE_P[canonP(m.name)]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)).sort((a,b)=>b.cnt-a.cnt);
+  MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.pk=phon([m.name,m.it,m.nick].filter(Boolean).join(" "));m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||SITE_P[canonP(m.name)]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)).sort((a,b)=>b.cnt-a.cnt);
   const g={};TR.forEach(t=>{if(!t.k)return;(g[t.k]||(g[t.k]={title:t.title,k:t.k,v:[]})).v.push(t)});
   SONGS=Object.values(g).sort((a,b)=>a.k.localeCompare(b.k,"el"));
   $("#stamp").textContent=DISCS.length?`${DISCS.length.toLocaleString("it")} dischi${ALLD.length>DISCS.length?" (+"+(ALLD.length-DISCS.length)+" doppi)":""} · ${TR.length.toLocaleString("it")} brani · aggiornato al ${DATA.date}`:"";
@@ -74,9 +82,10 @@ function search(q){
   const out=$("#out-cerca"); const k=norm(q);
   if(k.length<2){out.innerHTML=summary();return;}
   const words=k.split(" ");const has=s=>words.every(w=>s.includes(w));
-  const ds0=DISCS.filter(d=>has(d.k)),ds=ds0.filter(supOk);
-  const gs=SONGS.filter(s=>has(s.k)||s.v.some(t=>t.kt&&has(t.kt))).map(s=>dsup?{...s,v:s.v.filter(t=>supOk(t.d))}:s).filter(s=>s.v.length);
-  const ms=MLIST.filter(m=>has(m.k)||(m.it&&has(norm(m.it))));
+  const pw=phon(q).split(" ").filter(w=>w.length>=2);const hasP=s=>pw.length>0&&!!s&&pw.every(w=>s.includes(w));
+  const ds0=DISCS.filter(d=>has(d.k)||hasP(d.pk)),ds=ds0.filter(supOk);
+  const gs=SONGS.filter(s=>has(s.k)||s.v.some(t=>(t.kt&&has(t.kt))||hasP(t.pk))).map(s=>dsup?{...s,v:s.v.filter(t=>supOk(t.d))}:s).filter(s=>s.v.length);
+  const ms=MLIST.filter(m=>has(m.k)||(m.it&&has(norm(m.it)))||hasP(m.pk));
   let h=supChips(DISCS);
   h+=`<section><h3>Brani <span class="count">${gs.length}</span></h3>${gs.slice(0,40).map(songBlock).join("")||'<p class="empty">Nessun brano con queste parole.</p>'}${gs.length>40?`<p class="hint">Mostro i primi 40: aggiungi una parola per restringere.</p>`:""}</section>`;
   h+=`<section><h3>Dischi <span class="count">${ds.length}</span></h3>${ds.slice(0,60).map(discRow).join("")||'<p class="empty">Nessun disco.</p>'}</section>`;
