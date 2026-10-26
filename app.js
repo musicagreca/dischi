@@ -6,6 +6,10 @@ let DATA={d:[],t:{},m:[],date:"",ts:0},LK={ss:{},sp:{},cs:{},cp:{}}, DISCS=[], B
 const SITE='https://musicagreca.com/';const CANZ='https://musicagreca.github.io/musica-italiana/';let CS={},CP={};
 const czLink=(id,kind)=>id?`<a class="badge cz" href="${CANZ}?${kind||'song'}=${encodeURIComponent(id)}" target="_blank" rel="noopener">canzoniere ↗</a>`:'';
 const siteLink=(id,label)=>id?`<a class="badge" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener">${label||'sul sito'} ↗</a>`:'';
+/* nomi generici (non persone) e gruppi */
+const GENERIC=/^(χορωδια|χορωδιες|ορχηστρα|orchestra|orchestre|coro|cori|gruppo|συγκροτημα|κομπανια|choir|chorus|ensemble|μπαντα|banda|band|ζυγια|χορωδια και ορχηστρα|ορχηστρα και χορωδια|coro e orchestra|orchestra e coro|vari|various|varios)$/;
+const GRPROLE=/^(gruppo|orchestra|ορχήστρα|συγκρότημα|ensemble|μπάντα|banda|ζυγιά|quartetto|quintetto|trio|coro e orchestra|coro di voci bianche|οργανικό σύνολο|band|κομπανία)/i;
+const GRPNAME=/^(χορωδ|ορχήστρ|ορχηστρ|orchestr|coro |συγκρότ|κομπαν|εστουδιαντ|estudiant|quartett|quintett|τρίο |ensemble|μπάντα|banda |ζυγιά|θίασος|compagnia|the )|philharmon|filarmon|orchest|ensemble|sängerknaben|choir|χορωδ|εστουδιαντ|estudiant|ορχήστρ|ορχηστρ|κομπανί|συγκρότ|(?:^|\s)(?:ζυγιά|μπάντα)(?:\s|$)|όμιλος|ομιλος|τετράς|τριάς|κουαρτέτο|quartet|quintet|σύνολο/i;
 /* chiave «a orecchio»: greco e lettere latine diventano la stessa cosa (ι/η/υ/ει/οι = i, ω = o, μπ = b, ντ = d…) */
 const GRD=[["ου","u"],["αι","e"],["ει","i"],["οι","i"],["υι","i"],["αυ","av"],["ευ","ev"],["μπ","b"],["ντ","d"],["γκ","g"],["γγ","g"],["γχ","gh"]];
 const GRL={"α":"a","β":"v","γ":"g","δ":"d","ε":"e","ζ":"z","η":"i","θ":"t","ι":"i","κ":"k","λ":"l","μ":"m","ν":"n","ξ":"x","ο":"o","π":"p","ρ":"r","σ":"s","τ":"t","υ":"i","φ":"f","χ":"h","ψ":"ps","ω":"o"};
@@ -53,7 +57,7 @@ function build(){MAYBE=null;NOART=null;
       splitN(t.mus).forEach(x=>addM(x,"mus",t));splitN(t.lyr).forEach(x=>addM(x,"lyr",t));}}
   DISCS.forEach(d=>d.tracks.sort((a,b)=>(+a.n||0)-(+b.n||0)));
   (DATA.m||[]).forEach(r=>{const k=norm(r[0]);const m=MUS[k]||(MUS[k]={name:r[0],perf:[],mus:[],lyr:[],roles:new Set()});m.it=r[1];m.born=r[2];m.died=r[3];m.rl=r[4];m.instr=r[5];m.nick=r[6];m.siteFlag=r[7]});
-  MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.pk=phon([m.name,m.it,m.nick].filter(Boolean).join(" "));m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||SITE_P[canonP(m.name)]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)).sort((a,b)=>b.cnt-a.cnt);
+  MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.pk=phon([m.name,m.it,m.nick].filter(Boolean).join(" "));m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||SITE_P[canonP(m.name)]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)&&!GENERIC.test(m.k)).map(m=>{m.group=GRPNAME.test(m.name)||m.perf.some(t=>{const p=t.perfL.find(p=>norm(p.name)===m.k);return p&&GRPROLE.test(p.role||"")});return m}).sort((a,b)=>b.cnt-a.cnt);
   const g={};TR.forEach(t=>{if(!t.k)return;(g[t.k]||(g[t.k]={title:t.title,k:t.k,v:[]})).v.push(t)});
   SONGS=Object.values(g).sort((a,b)=>a.k.localeCompare(b.k,"el"));
   $("#stamp").textContent=DISCS.length?`${DISCS.length.toLocaleString("it")} dischi${ALLD.length>DISCS.length?" (+"+(ALLD.length-DISCS.length)+" doppi)":""} · ${TR.length.toLocaleString("it")} brani · aggiornato al ${DATA.date}`:"";
@@ -98,7 +102,7 @@ function songBlock(s){
   <ul>${s.v.map(t=>`<li><button class="ver" data-disc="${esc(t.d.code)}">${covImg(t.d,"xs")}<span class="code">${esc(t.d.code)}</span><span>${esc(t.perfL.map(p=>p.name).join(", ")||t.d.artist||"")}<small>${esc(t.d.title)}</small></span>${shelfOf(t.d)}</button></li>`).join("")}</ul></div>`;
 }
 const musRow=m=>{const c=mcounts(m);const parts=[c.sing&&`${c.sing} cantate`,c.ins&&`${c.ins} suonate`,c.mus&&`${c.mus} composte`,c.lyr&&`${c.lyr} testi`].filter(Boolean).join(" · ");
-  return `<button class="row mus" data-mus="${esc(m.k)}"><span class="main"><b>${esc(m.name)}</b><small>${esc([m.it&&m.it!==m.name?m.it:"",parts].filter(Boolean).join(" — "))}</small></span>${m.site?'<span class="badge">sul sito</span>':m.cz?'<span class="badge cz">canzoniere</span>':'<span class="badge off">da scrivere</span>'}<span class="num">${mval(m)}</span></button>`};
+  return `<button class="row mus" data-mus="${esc(m.k)}"><span class="main"><b>${esc(m.name)}</b><small>${esc([m.it&&m.it!==m.name?m.it:"",parts].filter(Boolean).join(" — "))}</small></span>${m.site?'<span class="badge">sul sito</span>':m.cz?'<span class="badge cz">canzoniere</span>':m.group?'<span class="badge off">gruppo</span>':'<span class="badge off">da scrivere</span>'}<span class="num">${mval(m)}</span></button>`};
 
 function summary(){
   const cats=count(DISCS,d=>d.cat);
@@ -148,8 +152,11 @@ function renderBrani(){
 }
 /* ---------- musicisti ---------- */
 let mshown=150,mq="",mrole="",msite="",msort="n",mlet="";
-const VOC=/τραγο|φων|voce|vocal|canto|ερμην|cant/i;
-function mcounts(m){if(m._c)return m._c;let sing=0,ins=0;m.perf.forEach(t=>{const p=t.perfL.find(p=>norm(p.name)===m.k);(p&&p.role&&!VOC.test(p.role)?ins++:sing++)});return m._c={sing,ins,mus:m.mus.length,lyr:m.lyr.length}}
+// voci: anche i registri della lirica (tenore, soprano…) e i cori
+const VOC=/τραγο|φων|voce|voci|vocal|canto|cant|ερμην|tenor|soprano|baritono|contralto|mezzosoprano|basso \(voce\)|χορωδ|coro|choir/i;
+// né cantate né suonate: direzione, arrangiamento, narrazione
+const OTH=/direttor|direzione|διεύθυν|διευθ|αφήγ|απαγγ|narra|recit|διασκευ|ενορχ|arrang|orchestraz/i;
+function mcounts(m){if(m._c)return m._c;let sing=0,ins=0;m.perf.forEach(t=>{const p=t.perfL.find(p=>norm(p.name)===m.k);const r=p&&p.role||"";if(!r||VOC.test(r))sing++;else if(!OTH.test(r))ins++});return m._c={sing,ins,mus:m.mus.length,lyr:m.lyr.length}}
 const ROLES=[["","Tutti"],["sing","Cantanti"],["ins","Strumentisti"],["mus","Compositori"],["lyr","Parolieri"]];
 const mval=m=>{const c=mcounts(m);return mrole?c[mrole]:m.cnt};
 const mfirst=m=>{const c=norm(m.name)[0]||"#";return /\p{L}/u.test(c)?c:"#"};
@@ -157,13 +164,14 @@ function renderMus(){
   const k=norm(mq);
   let base=MLIST.filter(m=>(!k||m.k.includes(k)||(m.it&&norm(m.it).includes(k)))&&(!mrole||mcounts(m)[mrole]>0));
   const withS=base.filter(m=>m.site).length;
-  let list=base.filter(m=>!msite||(msite==="si"?m.site:!m.site));
+  const noS=base.filter(m=>!m.site&&!m.group).length;
+  let list=base.filter(m=>!msite||(msite==="si"?m.site:(!m.site&&!m.group)));
   if(msort==="a"){list=list.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name),"el"))}else{list=list.slice().sort((a,b)=>mval(b)-mval(a))}
   MPRINT=list;let az="";
   if(msort==="a"){const L=[...new Set(list.map(mfirst))].sort((a,b)=>a.localeCompare(b,"el"));if(!L.includes(mlet))mlet=L.find(l=>/[α-ω]/.test(l))||L[0]||"";az=`<div class="az">${L.map(l=>`<button class="${l===mlet?"on":""}" data-mlet="${esc(l)}">${esc(l.toUpperCase())}</button>`).join("")}</div>`;list=list.filter(m=>mfirst(m)===mlet)}
   const ch=(key,val,label,cur)=>`<button class="chip ${cur===val?"on":""}" data-${key}="${esc(val)}">${label}</button>`;
   $("#mus-controls").innerHTML=`<div class="chips">${ROLES.map(([v,l])=>ch("mrole",v,l,mrole)).join("")}</div>
-   <div class="chips">${ch("msite","","Tutti",msite)}${ch("msite","si",`Con scheda sul sito <span>${withS}</span>`,msite)}${ch("msite","no",`Senza scheda <span>${base.length-withS}</span>`,msite)}
+   <div class="chips">${ch("msite","","Tutti",msite)}${ch("msite","si",`Con scheda sul sito <span>${withS}</span>`,msite)}${ch("msite","no",`Senza scheda <span>${noS}</span>`,msite)}
    <span class="sep"></span>${ch("msort","n","Per presenza",msort)}${ch("msort","a","A–Z",msort)}</div>
    ${pbar([["mus","Stampa l'elenco (solo nomi)"]])}<p class="hint">${base.length.toLocaleString("it")} ${ROLES.find(r=>r[0]===mrole)[1].toLowerCase()}${msite==="no"&&msort==="n"?" · in cima chi compare di più e non ha ancora la scheda: i primi candidati da scrivere.":""}</p>${az}`;
   $("#out-musicisti-list").innerHTML=list.slice(0,mshown).map(musRow).join("")+more("musicisti",Math.min(mshown,list.length),list.length);
