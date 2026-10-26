@@ -232,6 +232,14 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var
 
 <div id="print"></div>
 <script src="app.js"></script>
-<script>if("serviceWorker" in navigator)window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));</script>
+<script>
+/* Quando c'è una versione nuova dell'app, si ricarica da sola (una volta) */
+if("serviceWorker" in navigator){
+  const hadController=!!navigator.serviceWorker.controller;let reloaded=false;
+  navigator.serviceWorker.addEventListener("controllerchange",()=>{if(!hadController||reloaded)return;reloaded=true;location.reload()});
+  window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").then(r=>{try{r.update()}catch(e){}}).catch(()=>{}));
+  document.addEventListener("visibilitychange",()=>{if(document.visibilityState==="visible")navigator.serviceWorker.getRegistration().then(r=>r&&r.update()).catch(()=>{})});
+}
+</script>
 </body>
 </html>

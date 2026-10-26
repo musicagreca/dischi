@@ -1,13 +1,14 @@
 // I miei dischi – funziona anche senza internet
-const V="dischi-v9";
+const V="dischi-v10";
+const COV="dischi-copertine"; // le copertine restano anche quando cambia versione
 const SHELL=["./","index.html","app.js","manifest.webmanifest","icona-192.png","icona-512.png"];
-self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL)).then(()=>self.skipWaiting()))});
-self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
+self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:"reload"})))).then(()=>self.skipWaiting()))});
+self.addEventListener("activate",e=>{e.waitUntil(caches.keys().then(ks=>Promise.all(ks.filter(k=>k!==V&&k!==COV).map(k=>caches.delete(k)))).then(()=>self.clients.claim()))});
 const net=(req,ms)=>new Promise((res,rej)=>{const t=setTimeout(()=>rej(new Error("lento")),ms);fetch(req).then(r=>{clearTimeout(t);res(r)},e=>{clearTimeout(t);rej(e)})});
 async function networkFirst(req,ms){const c=await caches.open(V);const key=req.url.split("?")[0];
   try{const r=await net(req,ms);if(r&&(r.ok||r.type==="opaque"))c.put(key,r.clone());return r}
   catch(e){const hit=await c.match(key);if(hit)return hit;throw e}}
-async function cacheFirst(req){const c=await caches.open(V);const hit=await c.match(req.url);if(hit)return hit;
+async function cacheFirst(req){const c=await caches.open(COV);const hit=await c.match(req.url);if(hit)return hit;
   const r=await fetch(req);if(r&&(r.ok||r.type==="opaque"))c.put(req.url,r.clone());return r}
 async function staleWhileRevalidate(req,e){const c=await caches.open(V);const key=req.url.split("?")[0];const hit=await c.match(key);
   const p=fetch(req).then(r=>{if(r&&r.ok)c.put(key,r.clone());return r}).catch(()=>hit);
