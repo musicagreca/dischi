@@ -107,7 +107,7 @@ const musRow=m=>{const c=mcounts(m);const parts=[c.sing&&`${c.sing} cantate`,c.i
 function summary(){
   const cats=count(DISCS,d=>d.cat);
   return `<div class="welcome"><p>Scrivi un titolo, un musicista, un'etichetta o un codice. Gli accenti non contano: <a href="#" data-q="τσιτσανης">τσιτσανης</a> trova Τσιτσάνης.</p>
-  <div class="tiles"><div><b>${DISCS.length}</b><span>dischi</span></div><div><b>${TR.length.toLocaleString("it")}</b><span>brani</span></div><div><b>${SONGS.length.toLocaleString("it")}</b><span>canzoni diverse</span></div><div><b>${MLIST.length.toLocaleString("it")}</b><span>musicisti</span></div></div>
+  <div class="tiles"><div><b>${DISCS.length}</b><span>dischi${ALLD.length>DISCS.length?" + "+(ALLD.length-DISCS.length)+" copie doppie":""}</span></div><div><b>${TR.length.toLocaleString("it")}</b><span>brani</span></div><div><b>${SONGS.length.toLocaleString("it")}</b><span>canzoni diverse</span></div><div><b>${MLIST.length.toLocaleString("it")}</b><span>musicisti</span></div></div>
   <h3>Categorie</h3><div class="chips">${cats.map(([c,n])=>`<button class="chip" data-cat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div></div>`;
 }
 const count=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x)||"—";m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
