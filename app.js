@@ -133,7 +133,9 @@ function renderDischi(){
   ${dgrid?`<div class="grid">${list.slice(0,dshown).map(d=>`<button class="tile" data-disc="${esc(d.code)}">${covImg(d,"gr")}<span class="code">${esc(d.code)}</span><small>${esc(d.title)}</small></button>`).join("")}</div>`:`<div class="list">${list.slice(0,dshown).map(discRow).join("")}</div>`}${more("dischi",Math.min(dshown,list.length),list.length)}`;
 }
 /* ---------- brani ---------- */
-let letter="";
+const AZG=[["Cifre e simboli",l=>!/[\p{L}]/u.test(l)],["Greco",l=>/[\u0370-\u03ff\u1f00-\u1fff]/.test(l)],["Latino",l=>/[a-z\u00c0-\u024f]/i.test(l)],["Cirillico",l=>/[\u0400-\u04ff]/.test(l)],["Altri",l=>true]];
+function azBar(L,cur,attr){const used=new Set();return `<div class="azg">${AZG.map(([n,f])=>{const g=L.filter(l=>!used.has(l)&&f(l)).sort((a,b)=>a.localeCompare(b,"el",{numeric:true}));g.forEach(l=>used.add(l));return g.length?`<div class="azrow"><span class="azl">${n}</span><div class="az">${g.map(l=>`<button class="${l===cur?"on":""}" ${attr}="${esc(l)}">${esc(l.toUpperCase())}</button>`).join("")}</div></div>`:""}).join("")}</div>`}
+let letter="",bshown=300;
 let bfilt="";
 const maybeLink=(id,au)=>`<a class="badge maybe${au==="ok"?" good":au==="diff"?" weak":""}" href="${SITE}#${encodeURIComponent(id)}" target="_blank" rel="noopener" title="Somiglia a: ${esc((LK.st||{})[id]||"")}">forse sul sito ↗</a><small class="maybe-why">somiglia a: ${esc((LK.st||{})[id]||"?")}${au==="ok"?" · <b>stesso autore</b>":au==="diff"?" · autore diverso ("+esc((LK.sa||{})[id]||"")+")":""}</small>`;
 const tBadge=t=>t.siteParts?t.siteParts.map(q=>q.id?siteLink(q.id,"sul sito: "+esc(q.x)):'<span class="badge off">non sul sito: '+esc(q.x)+'</span>').join(" "):t.site?siteLink(t.site):t.siteMaybe?maybeLink(t.siteMaybe,t.maybeAuth):t.cz?czLink(t.cz):sGr({title:t.title})?'<span class="badge off">non sul sito</span>':"";
@@ -147,8 +149,8 @@ function renderBrani(){
   if(!letters.includes(letter))letter=letters.find(l=>/[α-ω]/.test(l))||letters[0]||"";
   const list=base.filter(s=>first(s)===letter);
   const chips=Object.entries(BF).map(([k,[l,f]])=>`<button class="chip ${bfilt===k?"on":""}" data-bfilt="${k}">${l} <span>${SONGS.filter(f).length.toLocaleString("it")}</span></button>`).join("");
-  $("#out-brani").innerHTML=`<p class="hint">${SONGS.length.toLocaleString("it")} canzoni diverse. Ogni canzone mostra tutti i dischi in cui c'è.</p><div class="chips">${chips}</div>${bfilt==="no"?`<p class="hint">Canzoni con titolo greco che nei tuoi dischi ci sono ma su musicagreca.com non ancora. In cima alla lettera, quelle con più versioni.</p>`:""}${pbar([["blet","Stampa questa lettera"],["ball","Stampa tutto l'elenco"]])}<div class="az">${letters.map(l=>`<button class="${l===letter?"on":""}" data-letter="${esc(l)}">${esc(l.toUpperCase())}</button>`).join("")}</div>
-  <div>${(bfilt==="no"?list.slice().sort((a,b)=>b.v.length-a.v.length):list).slice(0,300).map(songBlock).join("")}</div>${list.length>300?`<p class="hint">Mostro le prime 300 di ${list.length}: usa la ricerca per trovare le altre.</p>`:""}`;
+  $("#out-brani").innerHTML=`<p class="hint">${SONGS.length.toLocaleString("it")} canzoni diverse. Ogni canzone mostra tutti i dischi in cui c'è.</p><div class="chips">${chips}</div>${bfilt==="no"?`<p class="hint">Canzoni con titolo greco che nei tuoi dischi ci sono ma su musicagreca.com non ancora. In cima alla lettera, quelle con più versioni.</p>`:""}${pbar([["blet","Stampa questa lettera"],["ball","Stampa tutto l'elenco"]])}${azBar(letters,letter,"data-letter")}
+  <div>${(bfilt==="no"?list.slice().sort((a,b)=>b.v.length-a.v.length):list).slice(0,bshown).map(songBlock).join("")}</div>${more("brani",Math.min(bshown,list.length),list.length)}`;
 }
 /* ---------- musicisti ---------- */
 let mshown=150,mq="",mrole="",msite="",msort="n",mlet="";
@@ -168,7 +170,7 @@ function renderMus(){
   let list=base.filter(m=>!msite||(msite==="si"?m.site:(!m.site&&!m.group)));
   if(msort==="a"){list=list.slice().sort((a,b)=>norm(a.name).localeCompare(norm(b.name),"el"))}else{list=list.slice().sort((a,b)=>mval(b)-mval(a))}
   MPRINT=list;let az="";
-  if(msort==="a"){const L=[...new Set(list.map(mfirst))].sort((a,b)=>a.localeCompare(b,"el"));if(!L.includes(mlet))mlet=L.find(l=>/[α-ω]/.test(l))||L[0]||"";az=`<div class="az">${L.map(l=>`<button class="${l===mlet?"on":""}" data-mlet="${esc(l)}">${esc(l.toUpperCase())}</button>`).join("")}</div>`;list=list.filter(m=>mfirst(m)===mlet)}
+  if(msort==="a"){const L=[...new Set(list.map(mfirst))].sort((a,b)=>a.localeCompare(b,"el"));if(!L.includes(mlet))mlet=L.find(l=>/[α-ω]/.test(l))||L[0]||"";az=azBar(L,mlet,"data-mlet");list=list.filter(m=>mfirst(m)===mlet)}
   const ch=(key,val,label,cur)=>`<button class="chip ${cur===val?"on":""}" data-${key}="${esc(val)}">${label}</button>`;
   $("#mus-controls").innerHTML=`<div class="chips">${ROLES.map(([v,l])=>ch("mrole",v,l,mrole)).join("")}</div>
    <div class="chips">${ch("msite","","Tutti",msite)}${ch("msite","si",`Con scheda sul sito <span>${withS}</span>`,msite)}${ch("msite","no",`Senza scheda <span>${noS}</span>`,msite)}
@@ -335,9 +337,10 @@ document.addEventListener("click",e=>{
   if(el.dataset.cat!==undefined){closePanel();dcat=el.dataset.cat;dshown=200;done.dischi=0;tab("dischi");return}
   if(el.dataset.dcat!==undefined){dcat=el.dataset.dcat;dshown=200;renderDischi();return}
   if(el.dataset.dsup!==undefined){dsup=el.dataset.dsup;store.set("disco-sup",dsup);dshown=200;done.dischi=0;if(cur==="cerca")search($("#q").value);else renderDischi();return}
-  if(el.dataset.letter){letter=el.dataset.letter;renderBrani();return}
-  if(el.dataset.bfilt!==undefined){bfilt=el.dataset.bfilt;renderBrani();return}
+  if(el.dataset.letter){letter=el.dataset.letter;bshown=300;renderBrani();return}
+  if(el.dataset.bfilt!==undefined){bfilt=el.dataset.bfilt;bshown=300;renderBrani();return}
   if(el.dataset.more==="dischi"){dshown+=200;renderDischi()}
+  if(el.dataset.more==="brani"){bshown+=200;renderBrani()}
   if(el.dataset.more==="musicisti"){mshown+=200;renderMus()}
 });
 document.addEventListener("keydown",e=>{if(e.key==="Escape"&&!$("#panel").hidden)closePanel()});
