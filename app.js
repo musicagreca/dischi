@@ -44,7 +44,7 @@ function maybeSite(l){
 function build(){MAYBE=null;NOART=null;
   DISCS=DATA.d.map(r=>({code:r[0],shelf:r[1],pos:r[2],box:r[3],no:r[4],cat:r[5],title:r[6],artist:r[7],genre:r[8],sub:r[9],year:r[10],label:r[11],catno:r[12],country:r[13],n:r[14],dur:r[15],sup:r[16],notes:r[17]}));
   BY={};DISCS.forEach(d=>{BY[d.code]=d;d.tracks=[];d.copies=[];d.k=norm([d.code,d.title,d.artist,d.label,d.catno,d.sub].join(" "));d.pk=phon([d.title,d.artist,d.label,d.sub].join(" "))});
-  DISCS.forEach(d=>{const b=/B$/i.test(d.code)&&BY[d.code.slice(0,-1)];if(b&&b!==d){d.copyOf=b;b.copies.push(d)}});
+  DISCS.forEach(d=>{const b=/\d[BCD]$/i.test(d.code)&&BY[d.code.slice(0,-1)];if(b&&b!==d){d.copyOf=b;b.copies.push(d)}});
   ALLD=DISCS;DISCS=DISCS.filter(d=>!d.copyOf);
   CS=LK.cs||{};CP=LK.cp||{};SITE_S=LK.ss||{};SITE_P=LK.sp||{};
   TR=[];MUS={};
@@ -66,7 +66,7 @@ function build(){MAYBE=null;NOART=null;
 
 /* ---------- copertine ---------- */
 let CIDX={};const chunkP={};
-const noB=c=>(c||"").replace(/B(?=(_\d+)?$)/,"");
+const noB=c=>(c||"").replace(/[BCD](?=(_\d+)?$)/,"");
 const covCode=d=>[d.code,d.box,noB(d.code),noB(d.box)].find(c=>c&&CIDX[c]!==undefined)||null;
 const covImg=(d,cls)=>{const c=covCode(d);return c?`<img class="cov ${cls}" data-cov="${esc(c)}" alt="" loading="lazy">`:`<span class="cov ${cls} nocov" aria-hidden="true"></span>`};
 function loadChunk(i){return chunkP[i]||(chunkP[i]=fetch(`copertine/cov_${i}.json`).then(r=>{if(!r.ok)throw 0;return r.json()}).catch(()=>{delete chunkP[i];return {}}))}
