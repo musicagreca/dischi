@@ -1,5 +1,5 @@
 // I miei dischi – funziona anche senza internet
-const V="dischi-v14";
+const V="dischi-v15";
 const COV="dischi-copertine"; // le copertine restano anche quando cambia versione
 const SHELL=["./","index.html","app.js","manifest.webmanifest","icona-192.png","icona-512.png"];
 self.addEventListener("install",e=>{e.waitUntil(caches.open(V).then(c=>c.addAll(SHELL.map(u=>new Request(u,{cache:"reload"})))).then(()=>self.skipWaiting()))});
