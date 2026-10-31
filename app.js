@@ -228,7 +228,7 @@ function openShelf(k){
 function renderShelves(){
   SHELFVIEW=true;const m={};ALLD.forEach(d=>{(m[d.shelf||"—"]||(m[d.shelf||"—"]=[])).push(d)});
   const keys=Object.keys(m).sort((a,b)=>a.localeCompare(b,"it",{numeric:true}));
-  $("#out-scaffali").innerHTML=mapSVG()+pbar([["shelf","Stampa tutti gli scaffali"],["map","Stampa la mappa"]])+`<p class="hint">${keys.length} spazi. Tocca uno spazio per vedere i dischi nell'ordine in cui stanno.</p>`+keys.map(s=>{const l=m[s].sort((a,b)=>(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true})||a.code.localeCompare(b.code,"it",{numeric:true}));const cats=count(l,d=>d.cat).map(([c,n])=>`${c} ${n}`).join(" · ");
+  $("#out-scaffali").innerHTML=mapSVG()+`<button type="button" class="scanbtn" data-scan>📷 Inquadra i dischi da rimettere a posto<small>passali davanti alla fotocamera: ti dico dove va ognuno</small></button>`+pbar([["shelf","Stampa tutti gli scaffali"],["map","Stampa la mappa"]])+`<p class="hint">${keys.length} spazi. Tocca uno spazio per vedere i dischi nell'ordine in cui stanno.</p>`+keys.map(s=>{const l=m[s].sort((a,b)=>(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true})||a.code.localeCompare(b.code,"it",{numeric:true}));const cats=count(l,d=>d.cat).map(([c,n])=>`${c} ${n}`).join(" · ");
     return `<details class="shelfbox"><summary><span class="shelf big">${esc(s)}</span><span class="main"><b>${l.length} dischi</b><small>${esc(cats)}</small></span></summary><div class="list">${l.map(discRow).join("")}</div></details>`}).join("");SHELFVIEW=false;
 }
 /* ---------- numeri ---------- */
@@ -293,6 +293,14 @@ async function copyText(t){try{await navigator.clipboard.writeText(t);return tru
 async function scrivi(k){const m=MUS[k];if(!m)return;const ok=await copyText(schedaText(m));const where=isGreek(m.name)?"l'<b>admin del sito</b> (blog_admin), vai su «👤 Persone»":"l'<b>admin del canzoniere</b>, vai su «Schede»";
   $("#scrivi-msg").innerHTML=ok?`✓ Copiato. Ora apri ${where} e premi <b>«📋 Incolla dai dischi»</b>.`:"Copia non riuscita: riprova dal computer.";}
 
+/* ---------- fotocamera ---------- */
+let scanP=null;
+function openScanner(){
+  const api={alld:()=>ALLD,by:()=>BY,cidx:()=>CIDX,loadChunk,covCode,esc,idbGet,idbPut};
+  if(window.Scanner)return Scanner.open(api);
+  scanP=scanP||new Promise((res,rej)=>{const sc=document.createElement("script");sc.src="scanner.js";sc.onload=res;sc.onerror=()=>{scanP=null;rej()};document.head.appendChild(sc)});
+  scanP.then(()=>Scanner.open(api)).catch(()=>alert("Per aprire la fotocamera la prima volta serve internet."));
+}
 /* ---------- stampa ---------- */
 const posOf=d=>d.shelf?d.shelf+(d.pos?" · "+d.pos:""):"—";
 const byPos=(a,b)=>(!a.shelf-!b.shelf)||String(a.shelf||"").localeCompare(String(b.shelf||""),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true});
@@ -334,6 +342,7 @@ function renderHome(){
   const r=BY[rnd];
   $("#out-home").innerHTML=`<div class="hero"><img src="icona-512.png" alt=""><h2>I miei <span>dischi</span></h2><p class="gr">η δισκοθήκη μου</p><p class="tot">${DISCS.length?`${DISCS.length.toLocaleString("it")} dischi · ${TR.length.toLocaleString("it")} brani · ${MLIST.length.toLocaleString("it")} musicisti`:"Sto caricando il catalogo…"}</p></div>
   <div class="home-q"><label class="hint" for="hq">Cerca un disco, una canzone, un musicista</label><input id="hq" type="search" placeholder="Scrivi qui…" autocomplete="off"></div>
+  <button type="button" class="scanbtn" data-scan>📷 Inquadra un disco<small>la fotocamera lo riconosce e ti dice dove va</small></button>
   <h3>Musica greca</h3><div class="cats">${GREEK_CATS.map(tile).join("")}</div>
   <h3>Altra musica</h3><div class="cats">${others.map(tile).join("")}</div>
   <h3>Sfoglia</h3><div class="cats"><button class="cat go" data-tab="dischi"><i>💿</i><b>Tutti i dischi</b></button><button class="cat go" data-tab="brani"><i>🎵</i><b>Canzoni</b></button><button class="cat go" data-tab="musicisti"><i>🎻</i><b>Musicisti</b></button><button class="cat go" data-tab="scaffali"><i>🗄️</i><b>Scaffali</b></button><button class="cat go" data-tab="numeri"><i>📊</i><b>Numeri</b></button></div>
@@ -348,6 +357,7 @@ function tab(name){cur=name;document.querySelectorAll("[data-tab]").forEach(b=>b
 
 document.addEventListener("click",e=>{
   const pe=e.target.closest("[data-print]");if(pe)return doPrint(pe.dataset.print);
+  if(e.target.closest("[data-scan]"))return openScanner();
   const sm=e.target.closest("[data-shelfmap]");if(sm){e.preventDefault();return openShelf(sm.dataset.shelfmap)}
   const se=e.target.closest("[data-scrivi]");if(se)return scrivi(se.dataset.scrivi);
   const el=e.target.closest("[data-dsup],[data-bfilt],[data-mrole],[data-msite],[data-msort],[data-mlet],[data-grid],[data-tab],[data-disc],[data-mus],[data-q],[data-cat],[data-dcat],[data-letter],[data-bsort],[data-bcat],[data-more],#panel-close");if(!el)return;
