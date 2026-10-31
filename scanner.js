@@ -100,12 +100,14 @@ function ui(){
   <div class="sc-cam"><video id="sc-v" playsinline muted></video><div class="sc-frame"></div><p id="sc-msg">Un momento…</p></div>
   <div id="sc-hit"></div>
   <div class="sc-bar"><b id="sc-n"></b><span class="sc-sort"><button type="button" data-ssort="scan">In ordine di scansione</button><button type="button" data-ssort="prov">Per posizione provvisoria</button><button type="button" data-ssort="pos">Per scaffale</button></span></div>
-  <div class="sc-tools"><button type="button" id="sc-unk">➕ Non lo riconosce: aggiungi come «da catalogare»</button><button type="button" id="sc-xl">⬇ Scarica Excel</button><button type="button" id="sc-clear">Svuota la lista</button></div>
+  <div class="sc-tools"><button type="button" id="sc-unk">➕ Non lo riconosce: aggiungi come «da catalogare»</button><button type="button" id="sc-xl">⬇ Scarica Excel</button><button type="button" id="sc-mg">🔀 Unisci o rinomina una pila</button><button type="button" id="sc-clear">Svuota la lista</button></div>
+  <div id="sc-merge" hidden></div>
   <ol id="sc-list"></ol>`;
   document.body.appendChild(el);
   $("#sc-close").onclick=close;
   const pi=$("#sc-p");pi.value=PROV;pi.oninput=()=>{PROV=pi.value.trim();try{localStorage.setItem("scan-prov",PROV)}catch(e){}provInfo()};
   $("#sc-unk").onclick=addUnknown;
+  $("#sc-mg").onclick=mergeForm;
   $("#sc-xl").onclick=excel;
   $("#sc-clear").onclick=()=>{if(LIST.length&&confirm("Svuoto la lista dei dischi inquadrati?")){LIST=[];lastAdded=null;save();drawList()}};
   $("#sc-v").onclick=()=>{streak=0;tick(true)};
@@ -165,6 +167,29 @@ function excel(){
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dischi inquadrati");XLSX.writeFile(wb,name);return}
   const csv="﻿"+[head,...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(";")).join("\r\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name.replace(".xlsx",".csv");document.body.appendChild(a);a.click();a.remove();
+}
+
+/* ---------- unire o rinominare le pile ---------- */
+const piles=()=>[...new Set(LIST.filter(e=>e.prov).map(e=>e.prov))].sort((a,b)=>a.localeCompare(b,"it",{numeric:true}));
+function mergeForm(){
+  const box=$("#sc-merge"),ps=piles();
+  if(!box.hidden){box.hidden=true;return}
+  if(!ps.length){box.hidden=false;box.innerHTML=`<p class="hint">Non ci sono ancora pile nella lista.</p>`;return}
+  const opt=ps.map(p=>`<option>${esc(p)}</option>`).join("");
+  box.hidden=false;box.innerHTML=`<p><b>Prendi la pila</b> <select id="sc-mf">${opt}</select></p>
+  <p><b>e mettila</b> <select id="sc-mt">${ps.map(p=>`<option value="${esc(p)}">in fondo a ${esc(p)}</option>`).join("")}<option value="">con un nome nuovo…</option></select> <input id="sc-mn" type="text" placeholder="nome nuovo" hidden></p>
+  <p class="hint" id="sc-mh"></p><button type="button" id="sc-mok">Fatto</button> <button type="button" id="sc-mno">Annulla</button>`;
+  const f=$("#sc-mf"),t=$("#sc-mt"),n=$("#sc-mn"),h=$("#sc-mh");
+  const help=()=>{n.hidden=t.value!=="";const a=f.value,b=t.value||n.value.trim()||"…",na=LIST.filter(e=>e.prov===a).length,nb=LIST.filter(e=>e.prov===b).reduce((m,e)=>Math.max(m,e.provn||0),0);
+    h.textContent=a===t.value?"Scegli due pile diverse.":t.value?`I ${na} dischi di «${a}» diventano «${b}» n. ${nb+1}–${nb+na}, dopo quelli che ci sono già.`:`«${a}» si chiamerà «${b}», con gli stessi numeri.`};
+  f.onchange=t.onchange=n.oninput=help;if(ps.length>1)t.selectedIndex=1;help();
+  $("#sc-mno").onclick=()=>{box.hidden=true};
+  $("#sc-mok").onclick=()=>{
+    const a=f.value,b=t.value||n.value.trim();if(!b||a===b)return;
+    const base=LIST.filter(e=>e.prov===b).reduce((m,e)=>Math.max(m,e.provn||0),0);
+    LIST.filter(e=>e.prov===a).sort((x,y)=>(x.provn||0)-(y.provn||0)).forEach(e=>{e.prov=b;e.provn=base+(e.provn||0)});
+    if(PROV===a){PROV=b;$("#sc-p").value=b;try{localStorage.setItem("scan-prov",b)}catch(e){}}
+    save();drawList();box.hidden=true;msg(`Fatto: «${a}» ora è dentro «${b}».`)};
 }
 
 /* ---------- ciclo della fotocamera ---------- */
