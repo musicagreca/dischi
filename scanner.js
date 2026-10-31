@@ -4,7 +4,7 @@
 "use strict";
 const CV_URL="opencv-5.0.0.js";
 const NDB=160,NQ=1000,T=12,K=12,MAXD=64,RATIO=.8,MINV=6,REL=1.5;
-const SIZES=[480,640];let sz=0; // due grandezze a turno: copertina vicina o lontana
+const SIZES=[480,640,360];let sz=0; // due grandezze a turno: copertina vicina o lontana
 const FPVER="fp1";
 let cv=null,FP=null,TABS=null,OWN=null,CODES=null,DESC32=null;
 let stream=null,running=false,busy=false,last=null,lastAdded=null,streak=0,alts=[];
@@ -192,7 +192,9 @@ async function open(api){
     if(!FP){const n=await buildPrints((i,t)=>msg(`Imparo le copertine nuove: ${i} di ${t}… (solo la prima volta)`));
       if(!n){msg("Non trovo le copertine: apri l'app con internet e riprova.");return}}
     if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){msg("Questo browser non lascia usare la fotocamera.");return}
-    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1280},height:{ideal:720}},audio:false});
+    // formato 4:3 = tutto il sensore: inquadra più largo, così il disco entra anche tenendolo vicino
+    stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1440},height:{ideal:1080},aspectRatio:{ideal:4/3}},audio:false});
+    try{const tr=stream.getVideoTracks()[0],cap=tr.getCapabilities?tr.getCapabilities():{};if(cap.zoom&&cap.zoom.min<1)await tr.applyConstraints({advanced:[{zoom:Math.max(cap.zoom.min,.6)}]})}catch(e){}
     const v=$("#sc-v");v.srcObject=stream;await v.play();
     running=true;streak=0;last=null;msg("Inquadra la copertina di un disco.");tick();
   }catch(e){
