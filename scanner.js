@@ -8,7 +8,7 @@ const SIZES=[480,640,360];let sz=0; // due grandezze a turno: copertina vicina o
 const FPVER="fp1";
 let cv=null,FP=null,TABS=null,OWN=null,CODES=null,DESC32=null;
 let stream=null,running=false,busy=false,last=null,lastAdded=null,streak=0,alts=[];
-let LIST=[],sortMode="scan";
+let LIST=[],sortMode="scan",PROV="";
 const $=s=>document.querySelector(s);
 let A=null;// funzioni prese dall'app
 const esc=s=>A.esc(s),covCode=d=>A.covCode(d),loadChunk=i=>A.loadChunk(i),idbGet=k=>A.idbGet(k),idbPut=(k,v)=>A.idbPut(k,v);
@@ -96,13 +96,15 @@ function ui(){
   if($("#scan"))return;
   const el=document.createElement("div");el.id="scan";el.innerHTML=`
   <div class="sc-top"><b>📷 Inquadra un disco</b><button type="button" id="sc-close">Chiudi</button></div>
+  <div class="sc-prov"><label for="sc-p">Posizione provvisoria:</label><input id="sc-p" type="text" placeholder="es. Pila 1, Tavolo, V05…" autocomplete="off"><small id="sc-pn"></small></div>
   <div class="sc-cam"><video id="sc-v" playsinline muted></video><div class="sc-frame"></div><p id="sc-msg">Un momento…</p></div>
   <div id="sc-hit"></div>
-  <div class="sc-bar"><b id="sc-n"></b><span class="sc-sort"><button type="button" data-ssort="scan">In ordine di scansione</button><button type="button" data-ssort="pos">Per scaffale</button></span></div>
+  <div class="sc-bar"><b id="sc-n"></b><span class="sc-sort"><button type="button" data-ssort="scan">In ordine di scansione</button><button type="button" data-ssort="prov">Per posizione provvisoria</button><button type="button" data-ssort="pos">Per scaffale</button></span></div>
   <div class="sc-tools"><button type="button" id="sc-unk">➕ Non lo riconosce: aggiungi come «da catalogare»</button><button type="button" id="sc-xl">⬇ Scarica Excel</button><button type="button" id="sc-clear">Svuota la lista</button></div>
   <ol id="sc-list"></ol>`;
   document.body.appendChild(el);
   $("#sc-close").onclick=close;
+  const pi=$("#sc-p");pi.value=PROV;pi.oninput=()=>{PROV=pi.value.trim();try{localStorage.setItem("scan-prov",PROV)}catch(e){}provInfo()};
   $("#sc-unk").onclick=addUnknown;
   $("#sc-xl").onclick=excel;
   $("#sc-clear").onclick=()=>{if(LIST.length&&confirm("Svuoto la lista dei dischi inquadrati?")){LIST=[];lastAdded=null;save();drawList()}};
@@ -115,45 +117,51 @@ function ui(){
 }
 function msg(t){const m=$("#sc-msg");if(m)m.textContent=t}
 const save=()=>idbPut("scanlist",LIST);
+const provNext=()=>LIST.filter(e=>e.prov===PROV).reduce((m,e)=>Math.max(m,e.provn||0),0)+1;
+function provInfo(){const n=$("#sc-pn");if(!n)return;n.textContent=PROV?`il prossimo disco sarà il n. ${provNext()} di «${PROV}»`:"scrivi dove stai mettendo i dischi (si numerano da soli)"}
+function withProv(e){if(PROV){e.prov=PROV;e.provn=provNext()}return e}
+const provTxt=e=>e.prov?`${e.prov} n. ${e.provn}`:"";
+const byProv=(a,b)=>(!a.prov-!b.prov)||String(a.prov||"").localeCompare(String(b.prov||""),"it",{numeric:true})||(a.provn||0)-(b.provn||0);
+const byShelf=(a,b)=>(!a.shelf-!b.shelf)||String(a.shelf).localeCompare(String(b.shelf),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true});
 function entryOf(d){return {code:d.code,title:d.title,artist:d.artist||"",cat:d.cat||"",shelf:d.shelf||"",pos:d.pos||"",catno:d.catno||"",label:d.label||"",t:Date.now()}}
 function covHTML(code,cls){return A.cidx()[code]!==undefined?`<img class="cov ${cls}" data-cov="${esc(code)}" alt="">`:`<span class="cov ${cls} nocov"></span>`}
 function drawHit(cov,ds,others){
   const d=ds[0];
-  $("#sc-hit").innerHTML=`<div class="sc-card">${covHTML(cov,"sc-c")}<div><b>${esc(d.title)}</b><small>${esc([d.artist,d.code].filter(Boolean).join(" · "))}</small><span class="shelf big">${esc(d.shelf||"—")}${d.pos?" · "+esc(d.pos):""}</span></div></div>
+  $("#sc-hit").innerHTML=`<div class="sc-card">${covHTML(cov,"sc-c")}<div><b>${esc(d.title)}</b><small>${esc([d.artist,d.code].filter(Boolean).join(" · "))}</small><span class="shelf big">${esc(d.shelf||"—")}${d.pos?" · "+esc(d.pos):""}</span>${PROV?`<small>→ mettilo in <b>${esc(PROV)}</b></small>`:""}</div></div>
   ${others.length?`<p class="sc-alt">Non è questo? Tocca quello giusto:</p><div class="sc-alts">${others.map(o=>`<button type="button" data-salt="${esc(o.code)}">${covHTML(covCode(o)||"","sc-a")}<span>${esc(o.title)}<small>${esc(o.code)} · ${esc(o.shelf||"—")}${o.pos?" · "+esc(o.pos):""}</small></span></button>`).join("")}</div>`:""}`;
 }
 function drawList(){
   const n=$("#sc-n");if(!n)return;
-  n.textContent=LIST.length?`${LIST.length} ${LIST.length===1?"disco":"dischi"} nella lista`:"La lista è vuota: inquadra il primo disco.";
+  provInfo();n.textContent=LIST.length?`${LIST.length} ${LIST.length===1?"disco":"dischi"} nella lista`:"La lista è vuota: inquadra il primo disco.";
   document.querySelectorAll("[data-ssort]").forEach(b=>b.classList.toggle("on",b.dataset.ssort===sortMode));
   const rows=LIST.map((e,i)=>[e,i]);
-  if(sortMode==="pos")rows.sort(([a],[b])=>(!a.shelf-!b.shelf)||String(a.shelf).localeCompare(String(b.shelf),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true}));
+  if(sortMode==="pos")rows.sort(([a],[b])=>byShelf(a,b));else if(sortMode==="prov")rows.sort(([a],[b])=>byProv(a,b));
   else rows.reverse();
   $("#sc-list").innerHTML=rows.map(([e,i])=>e.unk
-    ?`<li class="unk"><img class="cov sc-l" src="${e.img}" alt=""><span><b>Da catalogare</b><small>non riconosciuto · ${new Date(e.t).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</small></span><button type="button" data-sdel="${i}" aria-label="Togli">✕</button></li>`
-    :`<li><button type="button" class="sc-open" data-disc="${esc(e.code)}">${covHTML(covCode(A.by()[e.code]||{code:e.code})||"","sc-l")}<span><b>${esc(e.title)}</b><small>${esc(e.code)}</small></span><span class="shelf">${esc(e.shelf||"—")}${e.pos?" · "+esc(e.pos):""}</span></button><button type="button" data-sdel="${i}" aria-label="Togli">✕</button></li>`).join("");
+    ?`<li class="unk"><img class="cov sc-l" src="${e.img}" alt=""><span><b>Da catalogare</b><small>${e.prov?esc(provTxt(e))+" · ":""}non riconosciuto · ${new Date(e.t).toLocaleTimeString("it-IT",{hour:"2-digit",minute:"2-digit"})}</small></span><button type="button" data-sdel="${i}" aria-label="Togli">✕</button></li>`
+    :`<li><button type="button" class="sc-open" data-disc="${esc(e.code)}">${covHTML(covCode(A.by()[e.code]||{code:e.code})||"","sc-l")}<span><b>${esc(e.title)}</b><small>${esc(e.code)}${e.prov?" · ora in "+esc(provTxt(e)):""}</small></span><span class="shelf">${esc(e.shelf||"—")}${e.pos?" · "+esc(e.pos):""}</span></button><button type="button" data-sdel="${i}" aria-label="Togli">✕</button></li>`).join("");
 }
 function beep(){try{const a=beep.a||(beep.a=new (window.AudioContext||window.webkitAudioContext)());const o=a.createOscillator(),g=a.createGain();o.frequency.value=880;g.gain.setValueAtTime(.15,a.currentTime);g.gain.exponentialRampToValueAtTime(.001,a.currentTime+.18);o.connect(g).connect(a.destination);o.start();o.stop(a.currentTime+.2)}catch(e){}try{navigator.vibrate&&navigator.vibrate(60)}catch(e){}}
-function addDisc(d){LIST.push(entryOf(d));lastAdded=d.code;save();drawList();beep()}
+function addDisc(d){LIST.push(withProv(entryOf(d)));lastAdded=d.code;save();drawList();beep()}
 function replaceLast(code){
   const d=A.by()[code]||A.alld().find(x=>x.code===code);if(!d)return;
   const i=LIST.map(e=>e.code).lastIndexOf(lastAdded);
-  if(i>=0)LIST[i]=entryOf(d);else LIST.push(entryOf(d));
+  if(i>=0){const o=LIST[i];LIST[i]=entryOf(d);if(o.prov){LIST[i].prov=o.prov;LIST[i].provn=o.provn}}else LIST.push(withProv(entryOf(d)));
   lastAdded=d.code;save();drawList();
   drawHit(covCode(d)||"",[d],alts.filter(o=>o.code!==d.code));
 }
 function addUnknown(){
   const v=$("#sc-v");if(!v||!v.videoWidth)return;
   const c=document.createElement("canvas"),s=160/Math.max(v.videoWidth,v.videoHeight);c.width=v.videoWidth*s;c.height=v.videoHeight*s;c.getContext("2d").drawImage(v,0,0,c.width,c.height);
-  LIST.push({unk:1,img:c.toDataURL("image/jpeg",.7),t:Date.now()});lastAdded=null;save();drawList();beep();
+  LIST.push(withProv({unk:1,img:c.toDataURL("image/jpeg",.7),t:Date.now()}));lastAdded=null;save();drawList();beep();
 }
 function excel(){
   if(!LIST.length)return;
-  const head=["N.","Codice","Titolo","Artista","Categoria","Scaffale","Posizione","Etichetta","N. catalogo","Note"];
-  const rows=(sortMode==="pos"?[...LIST].sort((a,b)=>(!a.shelf-!b.shelf)||String(a.shelf).localeCompare(String(b.shelf),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true})):LIST)
-    .map((e,i)=>e.unk?[i+1,"","","","","","","","","Da catalogare (non riconosciuto)"]:[i+1,e.code,e.title,e.artist,e.cat,e.shelf,e.pos,e.label,e.catno,""]);
+  const head=["N.","Codice","Titolo","Artista","Categoria","Scaffale","Posizione","Posizione provvisoria","N. provvisorio","Etichetta","N. catalogo","Note"];
+  const rows=(sortMode==="pos"?[...LIST].sort(byShelf):sortMode==="prov"?[...LIST].sort(byProv):LIST)
+    .map((e,i)=>e.unk?[i+1,"","","","","","",e.prov||"",e.provn||"","","","Da catalogare (non riconosciuto)"]:[i+1,e.code,e.title,e.artist,e.cat,e.shelf,e.pos,e.prov||"",e.provn||"",e.label,e.catno,""]);
   const name="dischi_inquadrati_"+new Date().toISOString().slice(0,10)+".xlsx";
-  if(window.XLSX){const ws=XLSX.utils.aoa_to_sheet([head,...rows]);ws["!cols"]=[{wch:4},{wch:10},{wch:40},{wch:28},{wch:16},{wch:9},{wch:9},{wch:20},{wch:16},{wch:30}];
+  if(window.XLSX){const ws=XLSX.utils.aoa_to_sheet([head,...rows]);ws["!cols"]=[{wch:4},{wch:10},{wch:40},{wch:28},{wch:16},{wch:9},{wch:9},{wch:18},{wch:8},{wch:20},{wch:16},{wch:30}];
     const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,"Dischi inquadrati");XLSX.writeFile(wb,name);return}
   const csv="﻿"+[head,...rows].map(r=>r.map(x=>`"${String(x).replace(/"/g,'""')}"`).join(";")).join("\r\n");
   const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([csv],{type:"text/csv"}));a.download=name.replace(".xlsx",".csv");document.body.appendChild(a);a.click();a.remove();
@@ -183,7 +191,7 @@ async function tick(force){
   busy=false;if(running)setTimeout(tick,120);
 }
 async function open(api){
-  A=api;
+  A=api;try{PROV=localStorage.getItem("scan-prov")||""}catch(e){}
   ui();document.body.classList.add("scanning");$("#scan").hidden=false;
   LIST=(await idbGet("scanlist"))||[];drawList();
   try{
