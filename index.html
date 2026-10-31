@@ -194,6 +194,12 @@ button:focus-visible,a:focus-visible,summary:focus-visible{outline:2px solid var
 .printbar{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
 .printbar button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
 .printbar button:hover{border-color:var(--cobalt);color:var(--cobalt)}
+.shelfpick{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:4px 0 10px;font-size:.85rem}
+.shelfpick select{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:5px 8px;max-width:100%}
+.shelfpick button{font:inherit;font-size:.82rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:5px 12px;cursor:pointer}
+.shelfpick button:hover{border-color:var(--cobalt);color:var(--cobalt)}
+.shelfpick small{width:100%;margin:0}
+@media print{.shelfpick{display:none}}
 #xlmsg button{font:inherit;font-weight:600;border:1px solid var(--cobalt);color:var(--cobalt);background:var(--card);border-radius:6px;padding:3px 10px;cursor:pointer}
 @media print{
   @page{margin:12mm}
