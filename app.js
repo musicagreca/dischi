@@ -129,7 +129,7 @@ function renderDischi(){
   const pre=dcat?(DISCS.filter(d=>d.cat===dcat).map(d=>d.code.match(/^[A-Z]+/)?.[0]).reduce((m,p)=>(m[p]=(m[p]||0)+1,m),{})):{};const main=Object.entries(pre).sort((a,b)=>b[1]-a[1])[0]?.[0];
   const list=DISCS.filter(d=>(!dcat||d.cat===dcat)&&supOk(d)).slice().sort((a,b)=>(dcat?((a.code.match(/^[A-Z]+/)?.[0]===main?0:1)-(b.code.match(/^[A-Z]+/)?.[0]===main?0:1)):0)||a.code.localeCompare(b.code,"it",{numeric:true}));
   $("#out-dischi").innerHTML=`<div class="chips"><span class="lbl">Categoria</span><button class="chip ${dcat?"":"on"}" data-dcat="">Tutti <span>${DISCS.filter(supOk).length}</span></button>${cats.map(([c,n])=>`<button class="chip ${c===dcat?"on":""}" data-dcat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div>${supChips(DISCS.filter(d=>!dcat||d.cat===dcat))}<p class="hint">${list.length.toLocaleString("it")} dischi${dcat||dsup?" · "+[dcat,dsup].filter(Boolean).map(esc).join(" · "):""}</p>
-  ${pbar([["dpos","Stampa per posizione"],["dtit","Stampa per titolo"]])}<div class="seg"><button data-grid="0" class="${dgrid?"":"on"}">Elenco</button><button data-grid="1" class="${dgrid?"on":""}">Copertine</button></div>
+  ${pbar([["dpos","Stampa per posizione"],["dtit","Stampa per titolo"],["dcatno","Stampa per numero di catalogo"]])}<div class="seg"><button data-grid="0" class="${dgrid?"":"on"}">Elenco</button><button data-grid="1" class="${dgrid?"on":""}">Copertine</button></div>
   ${dgrid?`<div class="grid">${list.slice(0,dshown).map(d=>`<button class="tile" data-disc="${esc(d.code)}">${covImg(d,"gr")}<span class="code">${esc(d.code)}</span><small>${esc(d.title)}</small></button>`).join("")}</div>`:`<div class="list">${list.slice(0,dshown).map(discRow).join("")}</div>`}${more("dischi",Math.min(dshown,list.length),list.length)}`;
 }
 /* ---------- brani ---------- */
@@ -284,6 +284,9 @@ async function scrivi(k){const m=MUS[k];if(!m)return;const ok=await copyText(sch
 /* ---------- stampa ---------- */
 const posOf=d=>d.shelf?d.shelf+(d.pos?" · "+d.pos:""):"—";
 const byPos=(a,b)=>(!a.shelf-!b.shelf)||String(a.shelf||"").localeCompare(String(b.shelf||""),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true});
+const labK=d=>norm(String(d.label||"").split("/")[0]);
+const catK=d=>String(d.catno||"").replace(/[\s.\-–\/]+/g," ").trim().toUpperCase();
+const byCat=(a,b)=>(!a.catno-!b.catno)||catK(a).localeCompare(catK(b),"en",{numeric:true})||labK(a).localeCompare(labK(b),"el")||a.code.localeCompare(b.code,"en",{numeric:true});
 const byTit=(a,b)=>norm(a.title).localeCompare(norm(b.title),"el");
 const pbar=btns=>`<div class="printbar">${btns.map(([k,l])=>`<button type="button" data-print="${k}">🖨 ${l}</button>`).join("")}</div>`;
 let MPRINT=[];
@@ -296,6 +299,7 @@ function doPrint(k){
   const cat=[dcat,dsup].filter(Boolean).map(x=>" – "+x).join("");
   if(k==="dpos"||k==="shelf"){const l=ALLD.filter(d=>k==="shelf"||((!dcat||d.cat===dcat)&&supOk(d))).slice().sort(byPos);return printList("Dischi per posizione"+(k==="shelf"?"":cat),l.map(d=>`<b>${esc(posOf(d))}</b> ${esc(d.title)}`),2)}
   if(k==="map"){$("#print").innerHTML=`<h1>I miei scaffali</h1><p class="psub">${new Date().toLocaleDateString("it-IT")}</p>`+mapSVG();return setTimeout(()=>window.print(),50)}
+  if(k==="dcatno"){const l=ALLD.filter(d=>(!dcat||d.cat===dcat)&&supOk(d)).slice().sort(byCat);return printList("Dischi per numero di catalogo"+cat,l.map(d=>`<b>${esc(d.catno||"senza numero")}</b> ${esc(d.label||"")} – ${esc(d.title)}${d.artist?" – "+esc(d.artist):""} <i>${esc(d.code)}${d.year?" · "+esc(d.year):""} · ${esc(posOf(d))}</i>`),1)}
   if(k==="dtit"){const l=DISCS.filter(d=>(!dcat||d.cat===dcat)&&supOk(d)).slice().sort(byTit);return printList("Dischi per titolo"+cat,l.map(d=>`${esc(d.title)} <b>${esc([d,...d.copies].map(posOf).join(" + "))}</b>`),2)}
   if(k==="bsrt"){const l=bSorted();return printList((bfilt?BF[bfilt][0]:"Brani")+" – per numero di dischi"+(bcat?" – "+bcat:""),l.map(s=>`${esc(s.title)} (${nDisc(s)}) <b>${esc([...new Set(s.v.map(t=>posOf(t.d)))].join(", "))}</b>`),2)}
   if(k==="blet"||k==="ball"){const base=bList();const l=k==="ball"?base:base.filter(s=>(s.k[0]||"#")===letter);
