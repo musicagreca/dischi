@@ -114,7 +114,10 @@ function ui(){
   el.addEventListener("click",e=>{
     const s=e.target.closest("[data-ssort]");if(s){sortMode=s.dataset.ssort;drawList();return}
     const a=e.target.closest("[data-salt]");if(a){replaceLast(a.dataset.salt);return}
-    const x=e.target.closest("[data-sdel]");if(x){LIST.splice(+x.dataset.sdel,1);save();drawList();return}
+    const x=e.target.closest("[data-sdel]");if(x){const [g]=LIST.splice(+x.dataset.sdel,1);
+      // gli altri dischi della stessa pila scalano di un posto: niente buchi
+      if(g&&g.prov)LIST.forEach(e=>{if(e.prov===g.prov&&e.provn>g.provn)e.provn--});
+      save();drawList();return}
   });
 }
 function msg(t){const m=$("#sc-msg");if(m)m.textContent=t}
