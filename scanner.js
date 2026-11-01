@@ -7,7 +7,8 @@ const NDB=160,NQ=1000,T=12,K=12,MAXD=64,RATIO=.8,MINV=6,REL=1.5;
 const SIZES=[480,640,360];let sz=0; // due grandezze a turno: copertina vicina o lontana
 const FPVER="fp1";
 let cv=null,FP=null,TABS=null,OWN=null,CODES=null,DESC32=null;
-let stream=null,running=false,busy=false,last=null,lastAdded=null,streak=0,alts=[];
+let stream=null,running=false,busy=false,last=null,lastAdded=null,lastShown=null,streak=0,alts=[];
+let MODE="list"; // "list" = mette in lista da solo, "look" = guarda e basta
 let LIST=[],sortMode="scan",PROV="";
 const $=s=>document.querySelector(s);
 let A=null;// funzioni prese dall'app
@@ -96,6 +97,7 @@ function ui(){
   if($("#scan"))return;
   const el=document.createElement("div");el.id="scan";el.innerHTML=`
   <div class="sc-top"><b>📷 Inquadra un disco</b><button type="button" id="sc-close">Chiudi</button></div>
+  <div class="sc-mode"><button type="button" data-smode="list">📋 Metto in lista</button><button type="button" data-smode="look">👀 Guardo e basta</button></div>
   <div class="sc-prov"><label for="sc-p">Posizione provvisoria:</label><input id="sc-p" type="text" placeholder="es. Pila 1, Tavolo, V05…" autocomplete="off"><small id="sc-pn"></small></div>
   <div class="sc-cam"><video id="sc-v" playsinline muted></video><div class="sc-frame"></div><p id="sc-msg">Un momento…</p></div>
   <div id="sc-hit"></div>
@@ -112,8 +114,10 @@ function ui(){
   $("#sc-clear").onclick=()=>{if(LIST.length&&confirm("Svuoto la lista dei dischi inquadrati?")){LIST=[];lastAdded=null;save();drawList()}};
   $("#sc-v").onclick=()=>{streak=0;tick(true)};
   el.addEventListener("click",e=>{
+    const m=e.target.closest("[data-smode]");if(m){setMode(m.dataset.smode);return}
+    const ad=e.target.closest("[data-sadd]");if(ad){const d=A.by()[ad.dataset.sadd]||A.alld().find(x=>x.code===ad.dataset.sadd);if(d){addDisc(d);drawHit(covCode(d)||"",[d],alts.filter(o=>o.code!==d.code));msg("Messo in lista.")}return}
     const s=e.target.closest("[data-ssort]");if(s){sortMode=s.dataset.ssort;drawList();return}
-    const a=e.target.closest("[data-salt]");if(a){replaceLast(a.dataset.salt);return}
+    const a=e.target.closest("[data-salt]");if(a){if(MODE==="look"){const d=A.by()[a.dataset.salt]||A.alld().find(x=>x.code===a.dataset.salt);if(d){lastShown=d.code;drawHit(covCode(d)||"",[d],alts.filter(o=>o.code!==d.code))}return}replaceLast(a.dataset.salt);return}
     const x=e.target.closest("[data-sdel]");if(x){const [g]=LIST.splice(+x.dataset.sdel,1);
       // gli altri dischi della stessa pila scalano di un posto: niente buchi
       if(g&&g.prov)LIST.forEach(e=>{if(e.prov===g.prov&&e.provn>g.provn)e.provn--});
@@ -130,10 +134,14 @@ const byProv=(a,b)=>(!a.prov-!b.prov)||String(a.prov||"").localeCompare(String(b
 const byShelf=(a,b)=>(!a.shelf-!b.shelf)||String(a.shelf).localeCompare(String(b.shelf),"it",{numeric:true})||(!a.pos-!b.pos)||String(a.pos).localeCompare(String(b.pos),"it",{numeric:true});
 function entryOf(d){return {code:d.code,title:d.title,artist:d.artist||"",cat:d.cat||"",shelf:d.shelf||"",pos:d.pos||"",catno:d.catno||"",label:d.label||"",t:Date.now()}}
 function covHTML(code,cls){return A.cidx()[code]!==undefined?`<img class="cov ${cls}" data-cov="${esc(code)}" alt="">`:`<span class="cov ${cls} nocov"></span>`}
+function setMode(m){MODE=m==="look"?"look":"list";try{localStorage.setItem("scan-mode",MODE)}catch(e){}
+  document.querySelectorAll("[data-smode]").forEach(b=>b.classList.toggle("on",b.dataset.smode===MODE));
+  lastShown=null; // la posizione provvisoria resta visibile: serve se premi «Metti in lista»
+  msg(MODE==="look"?"Guardo e basta: ti dico se il disco c'è e dov'è, senza metterlo in lista.":"Inquadra la copertina di un disco.")}
 function drawHit(cov,ds,others){
-  const d=ds[0];
-  $("#sc-hit").innerHTML=`<div class="sc-card">${covHTML(cov,"sc-c")}<div><b>${esc(d.title)}</b><small>${esc([d.artist,d.code].filter(Boolean).join(" · "))}</small><span class="shelf big">${esc(d.shelf||"—")}${d.pos?" · "+esc(d.pos):""}</span>${PROV?`<small>→ mettilo in <b>${esc(PROV)}</b></small>`:""}</div></div>
-  ${others.length?`<p class="sc-alt">Non è questo? Tocca quello giusto:</p><div class="sc-alts">${others.map(o=>`<button type="button" data-salt="${esc(o.code)}">${covHTML(covCode(o)||"","sc-a")}<span>${esc(o.title)}<small>${esc(o.code)} · ${esc(o.shelf||"—")}${o.pos?" · "+esc(o.pos):""}</small></span></button>`).join("")}</div>`:""}`;
+  const d=ds[0];const inList=LIST.some(e=>e.code===d.code);
+  $("#sc-hit").innerHTML=`<div class="sc-card">${covHTML(cov,"sc-c")}<div><b>${esc(d.title)}</b><small>${esc([d.artist,d.code].filter(Boolean).join(" · "))}</small><span class="shelf big">${esc(d.shelf||"—")}${d.pos?" · "+esc(d.pos):""}</span>${MODE==="list"&&PROV?`<small>→ mettilo in <b>${esc(PROV)}</b></small>`:""}${MODE==="look"?(inList?`<small>✔ è già nella lista</small>`:`<button type="button" class="sc-add" data-sadd="${esc(d.code)}">➕ Metti in lista${PROV?" ("+esc(PROV)+")":""}</button>`):""}</div></div>
+  ${others.length?`<p class="sc-alt">Non è questo? ${MODE==="look"?"Altri simili:":"Tocca quello giusto:"}</p><div class="sc-alts">${others.map(o=>`<button type="button" data-salt="${esc(o.code)}">${covHTML(covCode(o)||"","sc-a")}<span>${esc(o.title)}<small>${esc(o.code)} · ${esc(o.shelf||"—")}${o.pos?" · "+esc(o.pos):""}</small></span></button>`).join("")}</div>`:""}`;
 }
 function drawList(){
   const n=$("#sc-n");if(!n)return;
@@ -209,17 +217,23 @@ async function tick(force){
       const cov=r[0].code;streak=(last===cov)?streak+1:1;last=cov;
       const ds=discsOf(cov);
       if(ds.length&&(streak>=2||force)){
+        if(MODE==="look"){
+          const seen=ds.some(d=>d.code===lastShown);
+          alts=[...ds.slice(1),...r.slice(1).flatMap(x=>discsOf(x.code))].filter((d,i,a)=>a.findIndex(z=>z.code===d.code)===i).slice(0,4);
+          if(!seen||force){lastShown=ds[0].code;drawHit(cov,ds,alts);beep()}
+          msg("C'è nel catalogo! Lo trovi sotto.");
+          busy=false;if(running)setTimeout(tick,120);return}
         const same=ds.some(d=>d.code===lastAdded);
         alts=[...ds.slice(1),...r.slice(1).flatMap(x=>discsOf(x.code))].filter((d,i,a)=>a.findIndex(z=>z.code===d.code)===i).slice(0,4);
         if(!same||force){drawHit(cov,ds,alts);if(!same)addDisc(ds[0])}
         msg(same?"Già nella lista. Passa al prossimo disco.":"Trovato! Passa al prossimo disco.");
       }else msg("Mi sembra di riconoscerlo… tienilo fermo un attimo.");
-    }else{streak=0;last=null;msg(r.length&&r[0].v>=4?"Non sono sicura… avvicinati o tocca lo schermo.":"Inquadra tutta la copertina, ben dritta.")}
+    }else{streak=0;last=null;if(MODE==="look"&&!(r.length&&r[0].v>=4))lastShown=null;msg(r.length&&r[0].v>=4?"Non sono sicura… avvicinati o tocca lo schermo.":"Inquadra tutta la copertina, ben dritta.")}
   }catch(e){msg("Qualcosa non va: "+(e.message||e))}
   busy=false;if(running)setTimeout(tick,120);
 }
 async function open(api){
-  A=api;try{PROV=localStorage.getItem("scan-prov")||""}catch(e){}
+  A=api;try{MODE=localStorage.getItem("scan-mode")==="look"?"look":"list"}catch(e){}try{PROV=localStorage.getItem("scan-prov")||""}catch(e){}
   ui();document.body.classList.add("scanning");$("#scan").hidden=false;
   LIST=(await idbGet("scanlist"))||[];drawList();
   try{
@@ -232,7 +246,7 @@ async function open(api){
     stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"},width:{ideal:1440},height:{ideal:1080},aspectRatio:{ideal:4/3}},audio:false});
     try{const tr=stream.getVideoTracks()[0],cap=tr.getCapabilities?tr.getCapabilities():{};if(cap.zoom&&cap.zoom.min<1)await tr.applyConstraints({advanced:[{zoom:Math.max(cap.zoom.min,.6)}]})}catch(e){}
     const v=$("#sc-v");v.srcObject=stream;await v.play();
-    running=true;streak=0;last=null;msg("Inquadra la copertina di un disco.");tick();
+    running=true;streak=0;last=null;setMode(MODE);tick();
   }catch(e){
     msg(e&&e.name==="NotAllowedError"?"Serve il permesso per la fotocamera: consentilo e riapri.":e&&e.message==="rete"?"Per la prima volta serve internet: collegati e riprova.":"Non riesco ad avviare: "+(e.message||e));
   }
