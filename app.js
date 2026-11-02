@@ -60,7 +60,7 @@ function build(){MAYBE=null;NOART=null;
   MLIST=Object.entries(MUS).map(([k,m])=>{m.k=k;m.pk=phon([m.name,m.it,m.nick].filter(Boolean).join(" "));m.cnt=m.perf.length+m.mus.length+m.lyr.length;m.site=SITE_P[k]||SITE_P[canonP(m.name)]||"";m.cz=CP[k]||"";return m}).filter(m=>m.cnt>0&&!/^(παραδοσιακ|traditional|tradizional|trad\b|anonim|διαφορ|αγνωστ|d\.\s?p\.?$|domaine public|public domain|dominio pubblico)/.test(m.k)&&!GENERIC.test(m.k)).map(m=>{m.group=GRPNAME.test(m.name)||m.perf.some(t=>{const p=t.perfL.find(p=>norm(p.name)===m.k);return p&&GRPROLE.test(p.role||"")});return m}).sort((a,b)=>b.cnt-a.cnt);
   const g={};TR.forEach(t=>{if(!t.k)return;(g[t.k]||(g[t.k]={title:t.title,k:t.k,v:[]})).v.push(t)});
   SONGS=Object.values(g).sort((a,b)=>a.k.localeCompare(b.k,"el"));
-  $("#stamp").textContent=DISCS.length?`${DISCS.length.toLocaleString("it")} dischi${ALLD.length>DISCS.length?" (+"+(ALLD.length-DISCS.length)+" doppi)":""} · ${TR.length.toLocaleString("it")} brani · aggiornato al ${DATA.date}`:"";
+  $("#stamp").textContent=DISCS.length?`${ALLD.length.toLocaleString("it")} dischi${ALLD.length>DISCS.length?" (di cui "+(ALLD.length-DISCS.length)+" doppi)":""} · ${TR.length.toLocaleString("it")} brani · aggiornato al ${DATA.date}`:"";
 }
 
 
@@ -107,7 +107,7 @@ const musRow=m=>{const c=mcounts(m);const parts=[c.sing&&`${c.sing} cantate`,c.i
 function summary(){
   const cats=count(DISCS,d=>d.cat);
   return `<div class="welcome"><p>Scrivi un titolo, un musicista, un'etichetta o un codice. Gli accenti non contano: <a href="#" data-q="τσιτσανης">τσιτσανης</a> trova Τσιτσάνης.</p>
-  <div class="tiles"><div><b>${DISCS.length}</b><span>dischi${ALLD.length>DISCS.length?" + "+(ALLD.length-DISCS.length)+" copie doppie":""}</span></div><div><b>${TR.length.toLocaleString("it")}</b><span>brani</span></div><div><b>${SONGS.length.toLocaleString("it")}</b><span>canzoni diverse</span></div><div><b>${MLIST.length.toLocaleString("it")}</b><span>musicisti</span></div></div>
+  <div class="tiles"><div><b>${ALLD.length.toLocaleString("it")}</b><span>dischi${ALLD.length>DISCS.length?", di cui "+(ALLD.length-DISCS.length)+" copie doppie":""}</span></div><div><b>${TR.length.toLocaleString("it")}</b><span>brani</span></div><div><b>${SONGS.length.toLocaleString("it")}</b><span>canzoni diverse</span></div><div><b>${MLIST.length.toLocaleString("it")}</b><span>musicisti</span></div></div>
   <h3>Categorie</h3><div class="chips">${cats.map(([c,n])=>`<button class="chip" data-cat="${esc(c)}">${esc(c)} <span>${n}</span></button>`).join("")}</div></div>`;
 }
 const count=(arr,f)=>{const m={};arr.forEach(x=>{const k=f(x)||"—";m[k]=(m[k]||0)+1});return Object.entries(m).sort((a,b)=>b[1]-a[1])};
@@ -340,7 +340,7 @@ function renderHome(){
   const tile=c=>n[c]?`<button class="cat" data-cat="${esc(c)}" style="--c:${CATCOL[c]||"var(--cobalt)"}"><b>${esc(c)}</b><span>${n[c]} dischi</span></button>`:"";
   if(DISCS.length&&!BY[rnd]){const g=DISCS.filter(d=>GREEK_CATS.includes(d.cat)&&covCode(d));const pool=g.length?g:DISCS;rnd=pool[Math.floor(Math.random()*pool.length)].code}
   const r=BY[rnd];
-  $("#out-home").innerHTML=`<div class="hero"><img src="icona-512.png" alt=""><h2>I miei <span>dischi</span></h2><p class="gr">η δισκοθήκη μου</p><p class="tot">${DISCS.length?`${DISCS.length.toLocaleString("it")} dischi · ${TR.length.toLocaleString("it")} brani · ${MLIST.length.toLocaleString("it")} musicisti`:"Sto caricando il catalogo…"}</p></div>
+  $("#out-home").innerHTML=`<div class="hero"><img src="icona-512.png" alt=""><h2>I miei <span>dischi</span></h2><p class="gr">η δισκοθήκη μου</p><p class="tot">${DISCS.length?`${ALLD.length.toLocaleString("it")} dischi · ${TR.length.toLocaleString("it")} brani · ${MLIST.length.toLocaleString("it")} musicisti`:"Sto caricando il catalogo…"}</p></div>
   <div class="home-q"><label class="hint" for="hq">Cerca un disco, una canzone, un musicista</label><input id="hq" type="search" placeholder="Scrivi qui…" autocomplete="off"></div>
   <button type="button" class="scanbtn" data-scan>📷 Inquadra un disco<small>la fotocamera lo riconosce e ti dice dove va</small></button>
   <h3>Musica greca</h3><div class="cats">${GREEK_CATS.map(tile).join("")}</div>
