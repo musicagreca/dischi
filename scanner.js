@@ -121,6 +121,10 @@ function ui(){
   $("#sc-clear").onclick=()=>{if(LIST.length&&confirm("Svuoto la lista dei dischi inquadrati?")){LIST=[];lastAdded=null;save();drawList()}};
   $("#sc-v").onclick=()=>{streak=0;tick(true)};
   el.addEventListener("click",e=>{
+    if(e.target.closest("[data-sdup]")){
+      // seconda copia dello stesso disco (es. L174 e L174B): prima una copia non ancora in lista, se no lo stesso disco di nuovo
+      const d=CURDS.find(x=>!LIST.some(e=>e.code===x.code))||CURDS[0];
+      if(d){addDisc(d);makeLock(CURDS,[],true);msg("Aggiunta un'altra copia: "+d.code)}return}
     const m=e.target.closest("[data-smode]");if(m){setMode(m.dataset.smode);return}
     const ad=e.target.closest("[data-sadd]");if(ad){const d=A.by()[ad.dataset.sadd]||A.alld().find(x=>x.code===ad.dataset.sadd);if(d){addDisc(d);drawHit(covCode(d)||"",[d],alts.filter(o=>o.code!==d.code));msg("Messo in lista.")}return}
     const s=e.target.closest("[data-ssort]");if(s){sortMode=s.dataset.ssort;drawList();return}
@@ -145,9 +149,10 @@ function setMode(m){MODE=m==="look"?"look":"list";try{localStorage.setItem("scan
   document.querySelectorAll("[data-smode]").forEach(b=>b.classList.toggle("on",b.dataset.smode===MODE));
   lastShown=null; // la posizione provvisoria resta visibile: serve se premi «Metti in lista»
   msg(MODE==="look"?"Guardo e basta: ti dico se il disco c'è e dov'è, senza metterlo in lista.":"Inquadra la copertina di un disco.")}
+let CURDS=[];
 function drawHit(cov,ds,others){
-  const d=ds[0];const inList=LIST.some(e=>e.code===d.code);
-  $("#sc-hit").innerHTML=`<div class="sc-card">${covHTML(cov,"sc-c")}<div><b>${esc(d.title)}</b><small>${esc([d.artist,d.code].filter(Boolean).join(" · "))}</small><span class="shelf big">${esc(d.shelf||"—")}${d.pos?" · "+esc(d.pos):""}</span>${MODE==="list"&&PROV?`<small>→ mettilo in <b>${esc(PROV)}</b></small>`:""}${MODE==="look"?(inList?`<small>✔ è già nella lista</small>`:`<button type="button" class="sc-add" data-sadd="${esc(d.code)}">➕ Metti in lista${PROV?" ("+esc(PROV)+")":""}</button>`):""}</div></div>
+  CURDS=ds;const d=ds[0];const inList=LIST.some(e=>e.code===d.code);
+  $("#sc-hit").innerHTML=`<div class="sc-card">${covHTML(cov,"sc-c")}<div><b>${esc(d.title)}</b><small>${esc([d.artist,d.code].filter(Boolean).join(" · "))}</small><span class="shelf big">${esc(d.shelf||"—")}${d.pos?" · "+esc(d.pos):""}</span>${MODE==="list"&&PROV?`<small>→ mettilo in <b>${esc(PROV)}</b></small>`:""}${MODE==="list"?`<button type="button" class="sc-dup" data-sdup>➕ Ne ho un'altra copia: aggiungila</button>`:""}${MODE==="look"?(inList?`<small>✔ è già nella lista</small>`:`<button type="button" class="sc-add" data-sadd="${esc(d.code)}">➕ Metti in lista${PROV?" ("+esc(PROV)+")":""}</button>`):""}</div></div>
   ${others.length?`<p class="sc-alt">Non è questo? ${MODE==="look"?"Altri simili:":"Tocca quello giusto:"}</p><div class="sc-alts">${others.map(o=>`<button type="button" data-salt="${esc(o.code)}">${covHTML(covCode(o)||"","sc-a")}<span>${esc(o.title)}<small>${esc(o.code)} · ${esc(o.shelf||"—")}${o.pos?" · "+esc(o.pos):""}</small></span></button>`).join("")}</div>`:""}`;
 }
 function drawList(){
