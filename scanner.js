@@ -8,7 +8,8 @@ const SIZES=[480,640,360];let sz=0; // due grandezze a turno: copertina vicina o
 const FPVER="fp1";
 let cv=null,FP=null,TABS=null,OWN=null,CODES=null,DESC32=null;
 let stream=null,running=false,busy=false,last=null,lastAdded=null,lastShown=null,streak=0,alts=[];
-let MODE="list"; // "list" = mette in lista da solo, "look" = guarda e basta
+let MODE="list";
+let LOCK=null,miss=0; // dopo aver messo un disco in lista, i suoi "fratelli" (stessa serie) non entrano finché il disco non esce dall'inquadratura // "list" = mette in lista da solo, "look" = guarda e basta
 let LIST=[],sortMode="scan",PROV="";
 const $=s=>document.querySelector(s);
 let A=null;// funzioni prese dall'app
@@ -91,6 +92,12 @@ function match(canvas){
 }
 // una copertina → i dischi che la usano (doppi, scatole, copie con la B)
 function discsOf(cov){return A.alld().filter(d=>covCode(d)===cov)}
+// dischi della stessa serie: stesso titolo a parte numeri e "Νο/Vol"
+const serieKey=t=>String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase().replace(/\(.*?\)/g," ").replace(/\b(no|νο|vol|τομος|part|cd|lp)\b\.?/g," ").replace(/[^\p{L}]+/gu," ").trim();
+const sKey=d=>{const k=serieKey(d.title);return k.length>=4?k:(k.length||serieKey(d.artist).length>=4?"@"+serieKey(d.artist)+"|"+k:"")};
+function sibs(d){const k=sKey(d);if(!k)return[];return A.alld().filter(x=>x.code!==d.code&&sKey(x)===k).sort((a,b)=>a.code.localeCompare(b.code,"it",{numeric:true})).slice(0,10)}
+const uniq=l=>l.filter((d,i,a)=>d&&a.findIndex(z=>z.code===d.code)===i);
+function makeLock(ds,others,keep){const n=[...ds,...others].map(d=>covCode(d)).filter(Boolean);LOCK=new Set([...(keep&&LOCK?LOCK:[]),...n])}
 
 /* ---------- interfaccia ---------- */
 function ui(){
@@ -161,7 +168,9 @@ function replaceLast(code){
   const i=LIST.map(e=>e.code).lastIndexOf(lastAdded);
   if(i>=0){const o=LIST[i];LIST[i]=entryOf(d);if(o.prov){LIST[i].prov=o.prov;LIST[i].provn=o.provn}}else LIST.push(withProv(entryOf(d)));
   lastAdded=d.code;save();drawList();
-  drawHit(covCode(d)||"",[d],alts.filter(o=>o.code!==d.code));
+  const prev=alts;alts=uniq([...prev.filter(o=>o.code!==d.code)]);
+  makeLock([d],prev,true); // resta bloccato anche il disco sbagliato che la fotocamera continua a vedere
+  drawHit(covCode(d)||"",[d],alts);msg("Corretto: "+d.title);
 }
 function addUnknown(){
   const v=$("#sc-v");if(!v||!v.videoWidth)return;
@@ -214,21 +223,23 @@ async function tick(force){
     const r=match(work);
     const ok=r.length&&r[0].v>=MINV&&r[0].v>=REL*(r[1]?r[1].v:0);
     if(ok||(force&&r.length)){
+      miss=0;
       const cov=r[0].code;streak=(last===cov)?streak+1:1;last=cov;
       const ds=discsOf(cov);
       if(ds.length&&(streak>=2||force)){
         if(MODE==="look"){
           const seen=ds.some(d=>d.code===lastShown);
-          alts=[...ds.slice(1),...r.slice(1).flatMap(x=>discsOf(x.code))].filter((d,i,a)=>a.findIndex(z=>z.code===d.code)===i).slice(0,4);
+          alts=uniq([...ds.slice(1),...sibs(ds[0]),...r.slice(1).flatMap(x=>discsOf(x.code))]).slice(0,8);
           if(!seen||force){lastShown=ds[0].code;drawHit(cov,ds,alts);beep()}
           msg("C'è nel catalogo! Lo trovi sotto.");
           busy=false;if(running)setTimeout(tick,120);return}
+        if(LOCK&&LOCK.has(cov)&&!force){msg("Già nella lista. Togli il disco dall'inquadratura per passare al prossimo.");busy=false;if(running)setTimeout(tick,120);return}
         const same=ds.some(d=>d.code===lastAdded);
-        alts=[...ds.slice(1),...r.slice(1).flatMap(x=>discsOf(x.code))].filter((d,i,a)=>a.findIndex(z=>z.code===d.code)===i).slice(0,4);
-        if(!same||force){drawHit(cov,ds,alts);if(!same)addDisc(ds[0])}
+        alts=uniq([...ds.slice(1),...sibs(ds[0]),...r.slice(1).flatMap(x=>discsOf(x.code))]).slice(0,8);
+        if(!same||force){drawHit(cov,ds,alts);if(!same)addDisc(ds[0]);makeLock(ds,alts)}
         msg(same?"Già nella lista. Passa al prossimo disco.":"Trovato! Passa al prossimo disco.");
       }else msg("Mi sembra di riconoscerlo… tienilo fermo un attimo.");
-    }else{streak=0;last=null;if(MODE==="look"&&!(r.length&&r[0].v>=4))lastShown=null;msg(r.length&&r[0].v>=4?"Non sono sicura… avvicinati o tocca lo schermo.":"Inquadra tutta la copertina, ben dritta.")}
+    }else{streak=0;last=null;if(++miss>=4)LOCK=null;if(MODE==="look"&&!(r.length&&r[0].v>=4))lastShown=null;msg(r.length&&r[0].v>=4?"Non sono sicura… avvicinati o tocca lo schermo.":"Inquadra tutta la copertina, ben dritta.")}
   }catch(e){msg("Qualcosa non va: "+(e.message||e))}
   busy=false;if(running)setTimeout(tick,120);
 }
