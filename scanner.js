@@ -51,7 +51,10 @@ async function buildPrints(progress){
     idbPut("impronte",{v:FPVER,items});
   }
   // tutto in un unico blocco + tabelle di ricerca veloce
-  CODES=Object.keys(items).filter(c=>items[c].d.length);
+  // solo le copertine che appartengono a un disco del catalogo: una copertina "orfana" (disco cancellato o doppione)
+  // confonderebbe lo scanner con il disco vero che ha la stessa copertina
+  const used=new Set(A.alld().map(d=>covCode(d)).filter(Boolean));
+  CODES=Object.keys(items).filter(c=>items[c].d.length&&used.has(c));
   let tot=0;CODES.forEach(c=>tot+=items[c].d.length);
   const all=new Uint8Array(tot);OWN=new Int32Array(tot/32);let o=0;
   CODES.forEach((c,i)=>{all.set(items[c].d,o);OWN.fill(i,o/32,(o+items[c].d.length)/32);o+=items[c].d.length});
