@@ -112,18 +112,29 @@ function ui(){
   <div class="sc-cam"><video id="sc-v" playsinline muted></video><div class="sc-frame"></div><p id="sc-msg">Un momento…</p></div>
   <div id="sc-hit"></div>
   <div class="sc-bar"><b id="sc-n"></b><span class="sc-sort"><button type="button" data-ssort="scan">In ordine di scansione</button><button type="button" data-ssort="prov">Per posizione provvisoria</button><button type="button" data-ssort="pos">Per scaffale</button></span></div>
-  <div class="sc-tools"><button type="button" id="sc-unk">➕ Non lo riconosce: aggiungi come «da catalogare»</button><button type="button" id="sc-xl">⬇ Scarica Excel</button><button type="button" id="sc-mg">🔀 Unisci o rinomina una pila</button><button type="button" id="sc-clear">Svuota la lista</button></div>
+  <div class="sc-tools"><button type="button" id="sc-unk">➕ Non lo riconosce: aggiungi come «da catalogare»</button><button type="button" id="sc-xl">⬇ Scarica Excel</button><button type="button" id="sc-man">✍️ Senza copertina: aggiungi a mano</button><button type="button" id="sc-mg">🔀 Unisci o rinomina una pila</button><button type="button" id="sc-clear">Svuota la lista</button></div>
   <div id="sc-merge" hidden></div>
+  <div id="sc-manbox" hidden><p><b>Scrivi il codice o una parola del titolo</b> (lo trovi sull'etichetta del disco)</p><input id="sc-mq" type="search" placeholder="es. E212B, Δείπνος…" autocomplete="off"><div id="sc-mres"></div></div>
   <ol id="sc-list"></ol>`;
   document.body.appendChild(el);
   $("#sc-close").onclick=close;
   const pi=$("#sc-p");pi.value=PROV;pi.oninput=()=>{PROV=pi.value.trim();try{localStorage.setItem("scan-prov",PROV)}catch(e){}provInfo()};
   $("#sc-unk").onclick=addUnknown;
   $("#sc-mg").onclick=mergeForm;
+  $("#sc-man").onclick=()=>{const b=$("#sc-manbox");b.hidden=!b.hidden;if(!b.hidden){$("#sc-mq").value="";$("#sc-mres").innerHTML="";$("#sc-mq").focus()}};
+  $("#sc-mq").oninput=()=>{
+    const q=$("#sc-mq").value.trim();const nn=t=>String(t||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"").toLowerCase();
+    if(q.length<2){$("#sc-mres").innerHTML="";return}
+    const Q=nn(q);const all=A.alld();
+    const exact=all.filter(d=>nn(d.code)===Q);
+    const res=(exact.length?exact:all.filter(d=>nn(d.code).startsWith(Q)||nn(d.title).includes(Q)||nn(d.artist).includes(Q))).slice(0,8);
+    $("#sc-mres").innerHTML=res.length?res.map(d=>`<button type="button" data-sman="${esc(d.code)}">${covHTML(covCode(d)||"","sc-a")}<span>${esc(d.title)}<small>${esc(d.code)}${d.artist?" · "+esc(d.artist):""}</small></span></button>`).join(""):'<p class="hint">Nessun disco trovato.</p>'};
   $("#sc-xl").onclick=excel;
   $("#sc-clear").onclick=()=>{if(LIST.length&&confirm("Svuoto la lista dei dischi inquadrati?")){LIST=[];lastAdded=null;save();drawList()}};
   $("#sc-v").onclick=()=>{streak=0;tick(true)};
   el.addEventListener("click",e=>{
+    const mn=e.target.closest("[data-sman]");if(mn){const d=A.alld().find(x=>x.code===mn.dataset.sman);
+      if(d){addDisc(d);$("#sc-manbox").hidden=true;msg("Aggiunto a mano: "+d.code+(PROV?" in "+PROV:""))}return}
     if(e.target.closest("[data-sdup]")){
       // seconda copia dello stesso disco (es. L174 e L174B): prima una copia non ancora in lista, se no lo stesso disco di nuovo
       const d=CURDS.find(x=>!LIST.some(e=>e.code===x.code))||CURDS[0];
