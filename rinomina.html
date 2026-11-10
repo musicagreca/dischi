@@ -124,7 +124,8 @@ async function plan({h,parent}){
   if(r){
     const disc=(code.match(/_(\d\d)$/)||[])[1];
     j.album=r[6]+(disc&&!/disco|cd\s*\d/i.test(r[6])?` (CD ${+disc})`:"");
-    j.folder=cut(clean(`${code} – ${shortArtist(r[7])} – ${r[6]}`),120);
+    const sa=shortArtist(r[7]);
+    j.folder=cut(clean([code,sa,r[6]].filter(Boolean).join(" – ")),120);
     j.newNames=tr.map((t,i)=>cut(clean(`${String(i+1).padStart(2,"0")} ${t[1]}`),110)+".flac");
   }
   j.cov=r?await cover(code):null;
