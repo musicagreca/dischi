@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>Sistema i nomi dei CD copiati</title>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--ink:#1b2340;--muted:#5d6580;--line:#d9dce6;--blue:#2c4aa8;--soft:#e3e8f7;--ok:#2f7d3a;--bad:#b3261e;--warn:#9a6a00}
+*{box-sizing:border-box}
+body{margin:0;font:17px/1.5 "Segoe UI",system-ui,sans-serif;color:var(--ink);background:#f3f4f7}
+main{max-width:980px;margin:0 auto;padding:24px 18px 60px}
+h1{font-size:26px;margin:0 0 6px}
+p.lead{color:var(--muted);margin:0 0 20px}
+.box{background:#fff;border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 16px}
+ol.how{margin:6px 0 0;padding-left:22px}ol.how li{margin:4px 0}
+button{font:inherit;font-weight:600;border:0;border-radius:10px;padding:12px 20px;background:var(--blue);color:#fff;cursor:pointer}
+button[disabled]{opacity:.45;cursor:default}
+button.sec{background:var(--soft);color:var(--blue)}
+#status{margin:12px 0 0;font-weight:600}
+.cd{border:1px solid var(--line);border-radius:12px;background:#fff;margin:0 0 14px;overflow:hidden}
+.cd header{display:flex;gap:14px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--line)}
+.cd header img{width:64px;height:64px;object-fit:cover;border-radius:6px;background:var(--soft)}
+.cd header b{display:block;font-size:18px}
+.cd header small{color:var(--muted)}
+.tag{margin-left:auto;font-weight:700;font-size:14px;padding:4px 10px;border-radius:20px;white-space:nowrap}
+.tag.ok{background:#e4f3e6;color:var(--ok)}.tag.bad{background:#fbe5e3;color:var(--bad)}.tag.done{background:var(--soft);color:var(--blue)}
+.cd .msg{padding:10px 16px;color:var(--bad)}
+table{width:100%;border-collapse:collapse;font-size:15px}
+td{padding:5px 16px;border-top:1px solid #eef0f5;vertical-align:top}
+td.old{color:var(--muted);width:38%}
+td.arrow{width:24px;color:var(--muted);padding:5px 0}
+.warn{color:var(--warn)}
+</style>
+</head>
+<body>
+<main>
+<h1>Sistema i nomi dei CD copiati</h1>
+<p class="lead">Prende titoli, artisti e copertine dal tuo catalogo e li scrive nei file FLAC.</p>
+
+<div class="box">
+<b>Come si usa</b>
+<ol class="how">
+<li>Copia ogni CD in FLAC in una cartella che si chiama <b>come il codice del catalogo</b> (per esempio <code>E187</code>, oppure <code>E185_01</code> per il primo disco di un doppio).</li>
+<li>Metti tutte queste cartelle dentro una stessa cartella, per esempio <code>Da sistemare</code>.</li>
+<li>Tocca <b>«Scegli la cartella»</b>, scegli <code>Da sistemare</code> e conferma il permesso di modifica.</li>
+<li>Controlla l'anteprima: i CD in verde sono pronti, quelli in rosso hanno un problema e non vengono toccati.</li>
+<li>Tocca <b>«Sistema i CD pronti»</b>. Ogni CD finisce in una cartella nuova con il nome completo, per esempio <code>E187 – Μαρκόπουλος – Ο Στράτης Θαλασσινός</code>.</li>
+</ol>
+<p style="margin:12px 0 0;color:var(--muted)">Funziona con Chrome o Edge sul computer. Le cartelle che hanno già il nome completo vengono saltate, quindi puoi rilanciarlo quante volte vuoi.</p>
+</div>
+
+<div class="box">
+<button id="pick" disabled>Scegli la cartella</button>
+<button id="go" disabled>Sistema i CD pronti</button>
+<div id="status">Carico il catalogo…</div>
+</div>
+
+<div id="list"></div>
+</main>
+
+<script>
+"use strict";
+const $=s=>document.querySelector(s);
+let D=null,T=null,IDX=null,ROOT=null,JOBS=[];
+const covCache={};
+
+/* ---------- catalogo ---------- */
+(async()=>{
+  try{
+    const [dj,ij]=await Promise.all([fetch("dischi.json",{cache:"no-store"}).then(r=>r.json()),fetch("copertine/idx.json",{cache:"no-store"}).then(r=>r.json())]);
+    D={};for(const r of dj.d)D[r[0]]=r;T=dj.t;IDX=ij;
+    if(!window.showDirectoryPicker){$("#status").innerHTML='<span style="color:var(--bad)">Questo browser non può modificare i file: apri la pagina con Chrome o Edge sul computer.</span>';return}
+    $("#status").textContent=`Catalogo pronto (${Object.keys(D).length} dischi, aggiornato al ${dj.date||"?"}). Scegli la cartella.`;
+    $("#pick").disabled=false;
+  }catch(e){$("#status").textContent="Non riesco a caricare il catalogo: "+e.message}
+})();
+
+async function cover(code){
+  const keys=[code,code.split("_")[0],code.replace(/B$/,""),code.split("_")[0].replace(/B$/,"")];
+  for(const k of keys){
+    const n=IDX[k];if(n==null)continue;
+    if(!covCache[n])covCache[n]=fetch(`copertine/cov_${n}.json`).then(r=>r.json()).catch(()=>({}));
+    const c=await covCache[n];let v=c[k];if(!v)continue;v=String(v);
+    return v.includes(",")?v.split(",").pop():v;
+  }
+  return null;
+}
+
+/* ---------- nomi ---------- */
+const clean=s=>String(s||"").replace(/[\\/:*?"<>|]/g," ").replace(/\s+/g," ").trim().replace(/[. ]+$/,"");
+const cut=(s,n)=>s.length>n?s.slice(0,n).trim():s;
+const people=s=>String(s||"").split(";").map(x=>x.replace(/\([^)]*\)/g,"").trim()).filter(Boolean);
+const shortArtist=a=>{const p=String(a||"").split(/\s+[–-]\s+|,\s*/)[0].trim();const w=p.split(/\s+/);return w.length>1?w[w.length-1]:p};
+const natural=(a,b)=>a.localeCompare(b,undefined,{numeric:true,sensitivity:"base"});
+const CODE=/^([A-Z]{1,8}\d{2,4}[A-Z]?(?:_\d{2})?)$/;
+
+/* ---------- scelta della cartella e anteprima ---------- */
+$("#pick").onclick=async()=>{
+  try{ROOT=await showDirectoryPicker({mode:"readwrite"})}catch(e){return}
+  $("#list").innerHTML="";JOBS=[];$("#go").disabled=true;
+  $("#status").textContent="Guardo le cartelle…";
+  const dirs=[];
+  if(CODE.test(ROOT.name))dirs.push({h:ROOT,parent:null});
+  else for await(const [name,h] of ROOT.entries())if(h.kind==="directory"&&CODE.test(name))dirs.push({h,parent:ROOT});
+  dirs.sort((a,b)=>natural(a.h.name,b.h.name));
+  if(!dirs.length){$("#status").textContent="Non ho trovato cartelle con il nome di un codice (per esempio E187).";return}
+  for(const x of dirs)JOBS.push(await plan(x));
+  const ok=JOBS.filter(j=>j.ok).length;
+  $("#status").textContent=`${dirs.length} cartelle trovate: ${ok} pronte, ${dirs.length-ok} da controllare.`;
+  $("#go").disabled=!ok||!dirs.some(x=>x.parent);
+  if(ok&&!dirs.some(x=>x.parent))$("#status").textContent+=" Hai scelto la cartella del CD: scegli invece la cartella che la contiene.";
+};
+
+async function plan({h,parent}){
+  const code=h.name, r=D[code], tr=(T[code]||[]).filter(t=>t[1]);
+  const files=[];for await(const [n,f] of h.entries())if(f.kind==="file"&&/\.flac$/i.test(n))files.push(n);
+  files.sort(natural);
+  const j={code,h,parent,files,r,tr,ok:false,why:""};
+  if(!r)j.why="Questo codice non è nel catalogo.";
+  else if(!files.length)j.why="Nella cartella non ci sono file FLAC.";
+  else if(!tr.length)j.why="Nel catalogo questo disco non ha l'elenco dei brani.";
+  else if(files.length!==tr.length)j.why=`Nella cartella ci sono ${files.length} brani, nel catalogo ${tr.length}. Non tocco niente: controlla.`;
+  else j.ok=true;
+  if(r){
+    const disc=(code.match(/_(\d\d)$/)||[])[1];
+    j.album=r[6]+(disc&&!/disco|cd\s*\d/i.test(r[6])?` (CD ${+disc})`:"");
+    j.folder=cut(clean(`${code} – ${shortArtist(r[7])} – ${r[6]}`),120);
+    j.newNames=tr.map((t,i)=>cut(clean(`${String(i+1).padStart(2,"0")} ${t[1]}`),110)+".flac");
+  }
+  j.cov=r?await cover(code):null;
+  draw(j);return j;
+}
+
+function draw(j){
+  const el=document.createElement("section");el.className="cd";j.el=el;
+  const img=j.cov?`<img src="data:image/jpeg;base64,${j.cov}" alt="">`:`<img alt="">`;
+  const head=j.r?`<b>${esc(j.r[6])}</b><small>${esc(j.code)} · ${esc(j.r[7])}${j.r[10]?" · "+esc(j.r[10]):""}${j.cov?"":' · <span class="warn">senza copertina</span>'}</small>`:`<b>${esc(j.code)}</b>`;
+  el.innerHTML=`<header>${img}<div>${head}</div><span class="tag ${j.ok?"ok":"bad"}">${j.ok?"Pronto":"Da controllare"}</span></header>`+
+    (j.ok?`<table>${j.files.map((f,i)=>`<tr><td class="old">${esc(f)}</td><td class="arrow">→</td><td>${esc(j.newNames[i])}</td></tr>`).join("")}</table>`:`<div class="msg">${esc(j.why)}</div>`);
+  $("#list").appendChild(el);
+}
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* ---------- esecuzione ---------- */
+$("#go").onclick=async()=>{
+  $("#go").disabled=true;$("#pick").disabled=true;
+  let done=0,err=0;
+  for(const j of JOBS.filter(j=>j.ok&&j.parent)){
+    const tag=j.el.querySelector(".tag");tag.textContent="Lavoro…";
+    try{
+      const out=await j.parent.getDirectoryHandle(j.folder,{create:true});
+      const pic=j.cov?Uint8Array.from(atob(j.cov),c=>c.charCodeAt(0)):null;
+      for(let i=0;i<j.files.length;i++){
+        const t=j.tr[i];
+        const src=await (await j.h.getFileHandle(j.files[i])).getFile();
+        const buf=new Uint8Array(await src.arrayBuffer());
+        const perf=people(t[7]);
+        const tags=[
+          ["TITLE",t[1]],["ALBUM",j.album],["ALBUMARTIST",j.r[7]],
+          ["ARTIST",perf.length?perf.join(", "):j.r[7]],
+          ["TRACKNUMBER",String(i+1)],["TRACKTOTAL",String(j.tr.length)],
+          ["DATE",j.r[10]],["GENRE",j.r[5]],["LABEL",j.r[11]],["CATALOGNUMBER",j.r[12]],
+          ["COMPOSER",t[5]],["LYRICIST",t[6]],["COMMENT",`Catalogo ${j.code}`+(t[2]?` · ${t[2]}`:"")],
+          ["DISCNUMBER",(j.code.match(/_(\d\d)$/)||[])[1]?String(+j.code.slice(-2)):""]
+        ].filter(x=>x[1]&&String(x[1]).trim());
+        const outBytes=retag(buf,tags,pic);
+        const fh=await out.getFileHandle(j.newNames[i],{create:true});
+        const w=await fh.createWritable();await w.write(outBytes);await w.close();
+        tag.textContent=`${i+1}/${j.files.length}`;
+      }
+      await j.parent.removeEntry(j.h.name,{recursive:true});
+      tag.className="tag done";tag.textContent="Fatto ✓";done++;
+    }catch(e){tag.className="tag bad";tag.textContent="Errore";j.el.insertAdjacentHTML("beforeend",`<div class="msg">${esc(e.message)} — la cartella originale non è stata cancellata.</div>`);err++}
+  }
+  $("#status").textContent=`Finito: ${done} CD sistemati${err?`, ${err} con errori`:""}.`;
+  $("#pick").disabled=false;
+};
+
+/* ---------- scrittura dei dati dentro il FLAC ---------- */
+function retag(buf,tags,pic){
+  if(buf[0]!==0x66||buf[1]!==0x4C||buf[2]!==0x61||buf[3]!==0x43)throw new Error("Un file non è un FLAC valido.");
+  let p=4;const keep=[];let last=false;
+  while(!last){
+    const h=buf[p];last=!!(h&0x80);const type=h&0x7F;
+    const len=(buf[p+1]<<16)|(buf[p+2]<<8)|buf[p+3];
+    if(type!==4&&type!==6&&type!==1)keep.push({type,data:buf.subarray(p+4,p+4+len)});
+    p+=4+len;
+  }
+  const audio=buf.subarray(p);
+  const enc=new TextEncoder();
+  // VORBIS_COMMENT
+  const vendor=enc.encode("I miei dischi");
+  const items=tags.map(([k,v])=>enc.encode(`${k}=${v}`));
+  const vc=new Uint8Array(4+vendor.length+4+items.reduce((s,x)=>s+4+x.length,0));
+  const dv=new DataView(vc.buffer);let q=0;
+  dv.setUint32(q,vendor.length,true);q+=4;vc.set(vendor,q);q+=vendor.length;
+  dv.setUint32(q,items.length,true);q+=4;
+  for(const x of items){dv.setUint32(q,x.length,true);q+=4;vc.set(x,q);q+=x.length}
+  const blocks=[...keep.filter(b=>b.type===0),{type:4,data:vc},...keep.filter(b=>b.type!==0)];
+  // PICTURE
+  if(pic){
+    const mime=enc.encode("image/jpeg"),desc=enc.encode("");
+    const pb=new Uint8Array(32+mime.length+desc.length+pic.length);const pv=new DataView(pb.buffer);let o=0;
+    pv.setUint32(o,3);o+=4;pv.setUint32(o,mime.length);o+=4;pb.set(mime,o);o+=mime.length;
+    pv.setUint32(o,desc.length);o+=4;pb.set(desc,o);o+=desc.length;
+    pv.setUint32(o,0);o+=4;pv.setUint32(o,0);o+=4;pv.setUint32(o,24);o+=4;pv.setUint32(o,0);o+=4;
+    pv.setUint32(o,pic.length);o+=4;pb.set(pic,o);
+    blocks.push({type:6,data:pb});
+  }
+  blocks.push({type:1,data:new Uint8Array(4096)});
+  const size=4+blocks.reduce((s,b)=>s+4+b.data.length,0)+audio.length;
+  const out=new Uint8Array(size);out.set([0x66,0x4C,0x61,0x43]);let w=4;
+  blocks.forEach((b,i)=>{
+    const L=b.data.length;
+    out[w]=(i===blocks.length-1?0x80:0)|b.type;out[w+1]=(L>>16)&255;out[w+2]=(L>>8)&255;out[w+3]=L&255;
+    out.set(b.data,w+4);w+=4+L;
+  });
+  out.set(audio,w);
+  return out;
+}
+</script>
+</body>
+</html>
