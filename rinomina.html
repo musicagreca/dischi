@@ -114,10 +114,13 @@ $("#pick").onclick=async()=>{
   if(CODE.test(ROOT.name))dirs.push({h:ROOT,parent:null});
   else for await(const [name,h] of ROOT.entries())if(h.kind==="directory"&&CODE.test(name))dirs.push({h,parent:ROOT});
   dirs.sort((a,b)=>natural(a.h.name,b.h.name));
-  if(!dirs.length){$("#status").textContent="Non ho trovato cartelle con il nome di un codice (per esempio E187).";return}
+  if(!dirs.length){let c=0;for await(const [n,h] of ROOT.entries())if(h.kind==="directory")for await(const [m,f] of h.entries())if(f.kind==="file"&&/\.flac$/i.test(m)){c++;break}
+    $("#status").textContent=c?`CD copiati in tutto: ${c}. Non c'è niente di nuovo da sistemare.`:"Non ho trovato cartelle con il nome di un codice (per esempio E187).";return}
   for(const x of dirs)JOBS.push(await plan(x));
   const ok=JOBS.filter(j=>j.ok).length;
-  $("#status").textContent=`${dirs.length} cartelle trovate: ${ok} pronte, ${dirs.length-ok} da controllare.`;
+  let copied=0,empty=0;
+  for await(const [n,h] of ROOT.entries()){if(h.kind!=="directory")continue;let has=false;for await(const [m,f] of h.entries())if(f.kind==="file"&&/\.flac$/i.test(m)){has=true;break}has?copied++:empty++}
+  $("#status").textContent=`CD copiati in tutto: ${copied}${empty?` (più ${empty} cartelle ancora vuote)`:""}. Da sistemare adesso: ${ok} pronti, ${JOBS.filter(j=>!j.ok&&j.files.length).length} da controllare.`;
   $("#go").disabled=!ok||!dirs.some(x=>x.parent);
   if(ok&&!dirs.some(x=>x.parent))$("#status").textContent+=" Hai scelto la cartella del CD: scegli invece la cartella che la contiene.";
 };
@@ -272,17 +275,18 @@ const mmss=s=>{s=Math.round(s);return `${Math.floor(s/60)}:${String(s%60).padSta
 function analyse(au){
   const sr=au.sampleRate,ch=[...Array(au.numberOfChannels)].map((_,i)=>au.getChannelData(i));
   const win=Math.round(sr*0.1),n=Math.floor(ch[0].length/win);
-  let peak=0,silentWins=0,run=0,gap=0;
-  const skip=Math.round(2/0.1); // ignora i primi e ultimi 2 secondi
+  let peak=0;const loud=new Uint8Array(n);
   for(let w=0;w<n;w++){
     let s=0;
     for(const c of ch)for(let k=w*win,e=k+win;k<e;k+=4){const v=c[k];s+=v*v;const a=v<0?-v:v;if(a>peak)peak=a}
-    const rms=Math.sqrt(s/(win/4*ch.length));
-    const inner=w>=skip&&w<n-skip;
-    if(rms<0.002){if(inner){silentWins++;run++;if(run*0.1>gap)gap=run*0.1}}else run=0;
+    loud[w]=Math.sqrt(s/(win/4*ch.length))>=0.002?1:0;
   }
-  const innerN=Math.max(1,n-2*skip);
-  return{dur:au.duration,peak,silent:silentWins/innerN,gap};
+  // il silenzio prima che cominci e dopo che finisce la musica non conta: guardo solo in mezzo
+  let first=loud.indexOf(1),last=loud.lastIndexOf(1);
+  let silentWins=0,run=0,gap=0;
+  if(first>=0)for(let w=first;w<=last;w++){if(!loud[w]){silentWins++;run++;if(run*0.1>gap)gap=run*0.1}else run=0}
+  const inner=first>=0?last-first+1:1;
+  return{dur:au.duration,peak,silent:first>=0?silentWins/inner:1,gap};
 }
 
 /* ---------- scrittura dei dati dentro il FLAC ---------- */
