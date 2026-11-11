@@ -121,7 +121,7 @@ async function plan({h,parent}){
   if(!r)j.why="Questo codice non è nel catalogo.";
   else if(!files.length)j.why="Nella cartella non ci sono file FLAC.";
   else if(!tr.length)j.why="Nel catalogo questo disco non ha l'elenco dei brani.";
-  else if(files.length!==tr.length)j.why=`Nella cartella ci sono ${files.length} brani, nel catalogo ${tr.length}. Non tocco niente: controlla.`;
+  else if(files.length!==tr.length){j.why=`Nella cartella ci sono ${files.length} brani, nel catalogo ${tr.length}. Non tocco niente: controlla.`;j.mismatch=true}
   else j.ok=true;
   if(r){
     const disc=(code.match(/_(\d\d)$/)||[])[1];
@@ -141,6 +141,20 @@ function draw(j){
   el.innerHTML=`<header>${img}<div>${head}</div><span class="tag ${j.ok?"ok":"bad"}">${j.ok?"Pronto":"Da controllare"}</span></header>`+
     (j.ok?`<table>${j.files.map((f,i)=>`<tr><td class="old">${esc(f)}</td><td class="arrow">→</td><td>${esc(j.newNames[i])}</td></tr>`).join("")}</table>`:`<div class="msg">${esc(j.why)}</div>`);
   $("#list").appendChild(el);
+  if(j.mismatch&&j.parent){
+    const b=document.createElement("div");b.className="msg";b.style.color="var(--ink)";
+    b.innerHTML=`Se sul CD più canzoni stanno nella stessa traccia: <button class="sec" style="margin-left:8px;padding:8px 14px">Sistema lo stesso, senza i titoli dei brani</button>`;
+    el.appendChild(b);
+    b.querySelector("button").onclick=()=>{
+      const all=j.tr.map(t=>t[1]).join(" · ");
+      j.tr=j.files.map((f,i)=>["",`${j.r[6]} – traccia ${i+1}`,"","","","","","",""]);
+      j.trNote=`Sul CD le ${all.split(" · ").length} canzoni sono raccolte in ${j.files.length} tracce: ${all}`;
+      j.newNames=j.files.map((f,i)=>cut(clean(`${String(i+1).padStart(2,"0")} ${j.r[6]} – traccia ${i+1}`),110)+".flac");
+      j.ok=true;j.mismatch=false;j.el.remove();draw(j);
+      const old=$("#list").lastElementChild;$("#list").insertBefore(old,$("#list").children[JOBS.indexOf(j)]||null);
+      $("#go").disabled=false;
+    };
+  }
 }
 const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
@@ -163,7 +177,7 @@ $("#go").onclick=async()=>{
           ["ARTIST",perf.length?perf.join(", "):j.r[7]],
           ["TRACKNUMBER",String(i+1)],["TRACKTOTAL",String(j.tr.length)],
           ["DATE",j.r[10]],["GENRE",j.r[5]],["LABEL",j.r[11]],["CATALOGNUMBER",j.r[12]],
-          ["COMPOSER",t[5]],["LYRICIST",t[6]],["COMMENT",`Catalogo ${j.code}`+(t[2]?` · ${t[2]}`:"")],
+          ["COMPOSER",t[5]],["LYRICIST",t[6]],["COMMENT",`Catalogo ${j.code}`+(t[2]?` · ${t[2]}`:"")+(j.trNote?` · ${j.trNote}`:"")],
           ["DISCNUMBER",(j.code.match(/_(\d\d)$/)||[])[1]?String(+j.code.slice(-2)):""]
         ].filter(x=>x[1]&&String(x[1]).trim());
         const outBytes=retag(buf,tags,pic);
