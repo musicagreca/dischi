@@ -258,7 +258,7 @@ function openDisc(code){
   <h3>Brani <span class="count">${d.tracks.length}</span></h3>
   <ol class="tracks">${d.tracks.map(t=>`<li><span class="tn">${esc(t.n)}</span><div><b><a href="#" data-q="${esc(t.title)}">${esc(t.title)}</a></b>${' '+tBadge(t)}${t.tr?`<i> ${esc(t.tr)}</i>`:""}${t.tipo?`<small class="tipo">${esc(t.tipo)}</small>`:""}
    <p class="credits">${t.mus?`Musica: ${mlinks(t.mus)}`:""}${t.lyr?` · Testo: ${mlinks(t.lyr)}`:""}${t.perfL.length?`<br>${t.perfL.map(p=>mlink(p.name)+(p.role?` <span class="role">${esc(p.role)}</span>`:"")).join(", ")}`:""}</p>${t.note?`<p class="tnote">${esc(t.note)}</p>`:""}</div><span class="td">${esc(t.dur)}</span></li>`).join("")}</ol>`;
-  showPanel();
+  showPanel();attachPlayer(d);
 }
 function openMus(k){
   const m=MUS[k];if(!m)return;
@@ -454,4 +454,37 @@ function linksFrom(site,canz){
   if(site||canz){const n=linksFrom(site,canz);if(!site){n.ss=LK.ss;n.sp=LK.sp;n.st=LK.st;n.sa=LK.sa}if(!canz){n.cs=LK.cs;n.cp=LK.cp}
     if(JSON.stringify(n)!==JSON.stringify(LK)){LK=n;idbPut("links",n);rerender()}}
 })();
+
+/* ---------- ascolto dei CD copiati (solo computer, Chrome/Edge) ---------- */
+let MDIR=null,MDIR_OK=false,DIRMAP=null;const AUD=new Audio();let QUEUE=[],QI=-1;
+const PCSS=document.createElement("style");PCSS.textContent=`.listen{margin:10px 0 4px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}.listen button,.tplay{font:inherit;font-weight:600;border:0;border-radius:999px;background:var(--cobalt);color:#fff;cursor:pointer}.listen button{padding:8px 16px}.listen button.sec{background:var(--cobalt-soft);color:var(--cobalt)}.listen small{color:var(--muted)}.tplay{width:30px;height:30px;padding:0;flex:none;margin-left:6px;font-size:13px}.tplay.on{background:var(--ochre)}#player{position:fixed;left:0;right:0;bottom:0;z-index:99;background:var(--card);border-top:1px solid var(--line);padding:10px 14px;display:flex;gap:10px;align-items:center;box-shadow:0 -4px 16px rgba(0,0,0,.12)}#player b{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#player button{font:inherit;border:0;background:var(--cobalt-soft);color:var(--cobalt);border-radius:8px;padding:6px 10px;cursor:pointer}#player audio{max-width:340px;width:40%}`;document.head.appendChild(PCSS);
+async function mdirLoad(){if(MDIR||!window.showDirectoryPicker)return;MDIR=await idbGet("musicDir");if(MDIR){try{MDIR_OK=(await MDIR.queryPermission({mode:"read"}))==="granted"}catch(e){MDIR=null}}}
+async function mdirPick(){try{MDIR=await showDirectoryPicker({mode:"read"});MDIR_OK=true;DIRMAP=null;idbPut("musicDir",MDIR);return true}catch(e){return false}}
+async function mdirRegrant(){try{MDIR_OK=(await MDIR.requestPermission({mode:"read"}))==="granted"}catch(e){MDIR_OK=false}return MDIR_OK}
+const codeOfDir=n=>(n.match(/^([A-Z]{1,8}\d{2,4}[A-Z]?(?:_\d{2})?)(?:\s|$)/)||[])[1];
+async function buildMap(){DIRMAP={};const walk=async(dir,depth)=>{for await(const [n,h] of dir.entries()){if(h.kind!=="directory")continue;const c=codeOfDir(n);if(c){if(!DIRMAP[c])DIRMAP[c]=h}else if(depth<2)await walk(h,depth+1)}};await walk(MDIR,0)}
+async function filesOf(code){if(!DIRMAP)await buildMap();const h=DIRMAP[code];if(!h)return null;const f=[];for await(const [n,x] of h.entries())if(x.kind==="file"&&/\.(flac|mp3|m4a|wav|ogg)$/i.test(n))f.push([n,x]);f.sort((a,b)=>a[0].localeCompare(b[0],undefined,{numeric:true}));return f}
+function playerBar(){let p=$("#player");if(!p){p=document.createElement("div");p.id="player";p.innerHTML=`<button id="pl-prev" title="Brano precedente">⏮</button><b id="pl-t"></b><button id="pl-next" title="Brano successivo">⏭</button><button id="pl-x" title="Chiudi">✕</button>`;document.body.appendChild(p);p.insertBefore(AUD,$("#pl-next"));AUD.controls=true;$("#pl-prev").onclick=()=>playAt(QI-1);$("#pl-next").onclick=()=>playAt(QI+1);$("#pl-x").onclick=()=>{AUD.pause();p.remove();marks()}}return p}
+let CUR_URL=null;
+async function playAt(i){if(i<0||i>=QUEUE.length)return;QI=i;const q=QUEUE[i];playerBar();$("#pl-t").textContent=`${q.label}`;if(CUR_URL)URL.revokeObjectURL(CUR_URL);CUR_URL=URL.createObjectURL(await q.h.getFile());AUD.src=CUR_URL;AUD.play().catch(()=>{});marks()}
+AUD.onended=()=>{if(QI+1<QUEUE.length)playAt(QI+1)};
+function marks(){document.querySelectorAll(".tplay").forEach(b=>{const on=$("#player")&&QUEUE[QI]&&b.dataset.k===QUEUE[QI].k;b.classList.toggle("on",!!on);b.textContent=on?"♪":"▶"})}
+async function attachPlayer(d){
+  if(!window.showDirectoryPicker)return;
+  const body=$("#panel-body"),ol=body.querySelector("ol.tracks");if(!ol)return;
+  const box=document.createElement("div");box.className="listen";ol.parentNode.insertBefore(box,ol.previousElementSibling);
+  await mdirLoad();
+  if(!MDIR){box.innerHTML=`<button class="sec">🎧 Collega la cartella della musica</button><small>Per ascoltare i CD che hai copiato su questo computer.</small>`;box.querySelector("button").onclick=async()=>{if(await mdirPick())openDisc(d.code)};return}
+  if(!MDIR_OK){box.innerHTML=`<button class="sec">🎧 Riapri la cartella della musica</button><small>Il browser chiede di nuovo il permesso.</small>`;box.querySelector("button").onclick=async()=>{if(await mdirRegrant())openDisc(d.code)};return}
+  let files;try{files=await filesOf(d.code)}catch(e){files=null}
+  if(!files||!files.length){box.innerHTML=`<small>Questo CD non è ancora stato copiato.</small> <button class="sec" style="padding:4px 10px">Cambia cartella</button>`;box.querySelector("button").onclick=async()=>{if(await mdirPick())openDisc(d.code)};return}
+  const lab=(n,i)=>n.replace(/\.[^.]+$/,"").replace(/^\d+\s*/,"")||`Traccia ${i+1}`;
+  const q=files.map(([n,h],i)=>({h,k:d.code+"#"+i,label:`${lab(n,i)} — ${d.title}`}));
+  box.innerHTML=`<button>▶ Ascolta il disco</button><small>${files.length} brani copiati</small>`;
+  box.querySelector("button").onclick=()=>{QUEUE=q;playAt(0)};
+  const lis=[...ol.children];
+  if(files.length===lis.length){lis.forEach((li,i)=>{const b=document.createElement("button");b.className="tplay";b.dataset.k=q[i].k;b.title="Ascolta";b.textContent="▶";b.onclick=e=>{e.stopPropagation();QUEUE=q;playAt(i)};li.insertBefore(b,li.querySelector(".td"))})}
+  else{const ul=document.createElement("ol");ul.className="tracks";ul.innerHTML=files.map(([n],i)=>`<li><span class="tn">${i+1}</span><div><b>${esc(lab(n,i))}</b></div></li>`).join("");[...ul.children].forEach((li,i)=>{const b=document.createElement("button");b.className="tplay";b.dataset.k=q[i].k;b.textContent="▶";b.onclick=()=>{QUEUE=q;playAt(i)};li.appendChild(b)});box.after(ul);box.insertAdjacentHTML("beforeend",`<small> · sul CD le tracce sono ${files.length}, nel catalogo i brani ${lis.length}</small>`)}
+  marks();
+}
 })();
