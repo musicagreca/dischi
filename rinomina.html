@@ -46,12 +46,14 @@ td.arrow{width:24px;color:var(--muted);padding:5px 0}
 <li>Controlla l'anteprima: i CD in verde sono pronti, quelli in rosso hanno un problema e non vengono toccati.</li>
 <li>Tocca <b>«Sistema i CD pronti»</b>. Ogni CD finisce in una cartella nuova con il nome completo, per esempio <code>E187 – Μαρκόπουλος – Ο Στράτης Θαλασσινός</code>.</li>
 </ol>
-<p style="margin:12px 0 0;color:var(--muted)">Funziona con Chrome o Edge sul computer. Le cartelle che hanno già il nome completo vengono saltate, quindi puoi rilanciarlo quante volte vuoi.</p>
+<p style="margin:12px 0 0">Con <b>«Controlla l'audio»</b> scegli una cartella e il programma ascolta i brani al posto tuo: segna in rosso quelli muti, con lunghi silenzi o con buchi in mezzo.</p>
+<p style="margin:8px 0 0;color:var(--muted)">Funziona con Chrome o Edge sul computer. Le cartelle che hanno già il nome completo vengono saltate, quindi puoi rilanciarlo quante volte vuoi.</p>
 </div>
 
 <div class="box">
 <button id="pick" disabled>Scegli la cartella</button>
 <button id="go" disabled>Sistema i CD pronti</button>
+<button id="chk" class="sec">Controlla l'audio</button>
 <div id="status">Carico il catalogo…</div>
 </div>
 
@@ -176,6 +178,66 @@ $("#go").onclick=async()=>{
   $("#status").textContent=`Finito: ${done} CD sistemati${err?`, ${err} con errori`:""}.`;
   $("#pick").disabled=false;
 };
+
+/* ---------- controllo dell'audio: silenzi e buchi ---------- */
+$("#chk").onclick=async()=>{
+  let root;try{root=await showDirectoryPicker({mode:"read"})}catch(e){return}
+  $("#list").innerHTML="";
+  const dirs=[];
+  const own=[];for await(const [n,h] of root.entries())if(h.kind==="file"&&/\.flac$/i.test(n))own.push(n);
+  if(own.length)dirs.push(root);
+  for await(const [n,h] of root.entries())if(h.kind==="directory")dirs.push(h);
+  dirs.sort((a,b)=>natural(a.name,b.name));
+  const ctx=new (window.AudioContext||window.webkitAudioContext)();
+  let tot=0,bad=0;
+  for(const d of dirs){
+    const files=[];for await(const [n,f] of d.entries())if(f.kind==="file"&&/\.flac$/i.test(n))files.push(n);
+    if(!files.length)continue;files.sort(natural);
+    const el=document.createElement("section");el.className="cd";
+    el.innerHTML=`<header><div><b>${esc(d.name)}</b><small>${files.length} brani</small></div><span class="tag">Ascolto…</span></header><table></table>`;
+    $("#list").appendChild(el);const tb=el.querySelector("table"),tag=el.querySelector(".tag");
+    let dbad=0;
+    for(let i=0;i<files.length;i++){
+      $("#status").textContent=`Controllo ${d.name}: brano ${i+1} di ${files.length}…`;
+      let res;
+      try{
+        const ab=await (await (await d.getFileHandle(files[i])).getFile()).arrayBuffer();
+        const au=await ctx.decodeAudioData(ab);res=analyse(au);
+      }catch(e){res={err:true}}
+      tot++;
+      const prob=[];
+      if(res.err)prob.push("il file non si legge");
+      else{
+        if(res.peak<0.01)prob.push("quasi muto");
+        else{
+          if(res.silent>0.25)prob.push(`${Math.round(res.silent*100)}% di silenzio`);
+          if(res.gap>=4)prob.push(`un buco di ${Math.round(res.gap)} secondi`);
+        }
+        if(res.dur<20)prob.push("molto corto");
+      }
+      if(prob.length){bad++;dbad++}
+      tb.insertAdjacentHTML("beforeend",`<tr><td>${esc(files[i])}</td><td style="width:70px">${res.err?"":mmss(res.dur)}</td><td style="color:${prob.length?"var(--bad)":"var(--ok)"};font-weight:600">${prob.length?"⚠ "+prob.join(", "):"✓ a posto"}</td></tr>`);
+    }
+    tag.className="tag "+(dbad?"bad":"ok");tag.textContent=dbad?`${dbad} da ascoltare`:"Tutto a posto";
+  }
+  $("#status").textContent=tot?`Controllati ${tot} brani: ${bad?bad+" da ascoltare (in rosso)":"tutti a posto"}. Non sente i piccoli clic: quelli si scoprono solo ascoltando.`:"Nessun file FLAC trovato.";
+};
+const mmss=s=>`${Math.floor(s/60)}:${String(Math.round(s%60)).padStart(2,"0")}`;
+function analyse(au){
+  const sr=au.sampleRate,ch=[...Array(au.numberOfChannels)].map((_,i)=>au.getChannelData(i));
+  const win=Math.round(sr*0.1),n=Math.floor(ch[0].length/win);
+  let peak=0,silentWins=0,run=0,gap=0;
+  const skip=Math.round(2/0.1); // ignora i primi e ultimi 2 secondi
+  for(let w=0;w<n;w++){
+    let s=0;
+    for(const c of ch)for(let k=w*win,e=k+win;k<e;k+=4){const v=c[k];s+=v*v;const a=v<0?-v:v;if(a>peak)peak=a}
+    const rms=Math.sqrt(s/(win/4*ch.length));
+    const inner=w>=skip&&w<n-skip;
+    if(rms<0.002){if(inner){silentWins++;run++;if(run*0.1>gap)gap=run*0.1}}else run=0;
+  }
+  const innerN=Math.max(1,n-2*skip);
+  return{dur:au.duration,peak,silent:silentWins/innerN,gap};
+}
 
 /* ---------- scrittura dei dati dentro il FLAC ---------- */
 function retag(buf,tags,pic){
