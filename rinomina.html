@@ -143,6 +143,7 @@ async function plan({h,parent}){
     j.folder=cut(clean([code,sa,r[6]].filter(Boolean).join(" – ")),120);
     j.newNames=j.tr.map((t,i)=>cut(clean(`${String(i+1).padStart(2,"0")} ${t[1]}`),110)+".flac");
   }
+  if(r&&!files.length){j.empty=true;return j} // cartella vuota (CD vuoto o non ancora copiato): non è un errore
   j.cov=r?await cover(code):null;
   draw(j);return j;
 }
